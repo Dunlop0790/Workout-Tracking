@@ -149,11 +149,19 @@ function memberRowHTML(m, cw) {
   const streak     = calcStreak(m.id, workouts);
   const removing   = confirmingId === m.id;
 
-  const checksHtml = [1,2,3].map(slot => {
+  // Always show at least 3 slots; show extra slots for any logged beyond 3,
+  // plus one empty slot so there's always a way to add another.
+  const maxSlot    = Math.max(3, count + 1);
+  const checksHtml = Array.from({ length: maxSlot }, (_, i) => {
+    const slot    = i + 1;
     const checked = myWorkouts.some(w => w.slot === slot);
-    return `<button class="check-btn ${checked?'checked':''}" data-action="toggle" data-id="${m.id}" data-slot="${slot}" aria-label="Workout ${slot}"></button>`;
+    const isExtra = slot > 3;
+    return `<button class="check-btn ${checked ? 'checked' : ''} ${isExtra ? 'extra' : ''}"
+              data-action="toggle" data-id="${m.id}" data-slot="${slot}"
+              aria-label="Workout ${slot}"></button>`;
   }).join('');
 
+  const extraLabel = count > 3 ? ` · +${count - 3} extra` : '';
   const streakHtml = streak >= 2 ? `<span class="streak-badge">${streak}w streak</span>` : '';
 
   const removeHtml = removing
@@ -164,10 +172,10 @@ function memberRowHTML(m, cw) {
     : `<button class="remove-btn" data-action="start-remove" data-id="${m.id}">&#215;</button>`;
 
   return `
-    <div class="member-row ${done?'done':''}" data-member-id="${m.id}">
+    <div class="member-row ${done ? 'done' : ''}" data-member-id="${m.id}">
       <div class="member-info">
-        <div class="member-name">${done?'&#10003; ':''}${esc(m.name)}</div>
-        <div class="member-meta"><span class="member-sub">${count}/3 this week${done?' · goal met':''}</span>${streakHtml}</div>
+        <div class="member-name">${done ? '&#10003; ' : ''}${esc(m.name)}</div>
+        <div class="member-meta"><span class="member-sub">${count}/3 this week${done ? ' · goal met' : ''}${extraLabel}</span>${streakHtml}</div>
       </div>
       <div class="checks">${checksHtml}</div>
       ${removeHtml}
