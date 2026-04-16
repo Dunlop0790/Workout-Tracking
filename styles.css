@@ -253,6 +253,16 @@ h1 {
   background: var(--surface-2);
 }
 
+.check-btn.extra {
+  border-style: dashed;
+  opacity: 0.6;
+}
+
+.check-btn.extra.checked {
+  border-style: solid;
+  opacity: 1;
+}
+
 /* Remove */
 .remove-btn {
   background: transparent;
