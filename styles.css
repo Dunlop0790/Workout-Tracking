@@ -208,6 +208,18 @@ h1 {
   white-space: nowrap;
 }
 
+.cool-badge {
+  font-size: 11px;
+  font-weight: 500;
+  color: #2563eb;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 20px;
+  padding: 1px 8px;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
 /* Checkboxes */
 .checks { display: flex; gap: 6px; }
 
@@ -261,6 +273,13 @@ h1 {
 .check-btn.extra.checked {
   border-style: solid;
   opacity: 1;
+  border-color: rgba(37, 99, 235, 0.35);
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.check-btn.extra.checked::after {
+  color: #2563eb;
 }
 
 /* Remove */
@@ -475,3 +494,4 @@ h1 {
   font-size: 14px;
   line-height: 1.6;
 }
+
