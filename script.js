@@ -175,8 +175,8 @@ function memberRowHTML(m, cw) {
   return `
     <div class="member-row ${done ? 'done' : ''}" data-member-id="${m.id}">
       <div class="member-info">
-        <div class="member-name">${done ? '&#10003; ' : ''}${esc(m.name)}${coolHtml}</div>
-        <div class="member-meta"><span class="member-sub">${count}/3 this week${done ? ' · goal met' : ''}${extraLabel}</span>${streakHtml}</div>
+        <div class="member-name">${done ? '&#10003; ' : ''}${esc(m.name)}</div>
+        <div class="member-meta"><span class="member-sub">${count}/3 this week${done ? ' · goal met' : ''}${extraLabel}</span>${streakHtml}${coolHtml}</div>
       </div>
       <div class="checks">${checksHtml}</div>
       ${removeHtml}
