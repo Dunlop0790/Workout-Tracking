@@ -186,6 +186,7 @@ h1 {
 .member-row.done .member-name { color: var(--green); }
 
 .member-meta {
+  flex-wrap: wrap;
   display: flex;
   gap: 10px;
   align-items: center;
