@@ -257,6 +257,42 @@ async function removeMember(id) {
 }
 
 // ─────────────────────────────────────────────
+// Jumpscare
+// ─────────────────────────────────────────────
+
+function triggerJumpscare(callback) {
+  const overlay = document.createElement('div');
+  overlay.id = 'jumpscare-overlay';
+  overlay.style.cssText = `
+    position: fixed; inset: 0; z-index: 9999;
+    background: #000;
+    display: flex; align-items: center; justify-content: center;
+  `;
+
+  const img = document.createElement('img');
+  img.src = 'jumpscare.jpg';
+  img.style.cssText = 'width:100%; height:100%; object-fit:cover; display:block;';
+
+  overlay.appendChild(img);
+  document.body.appendChild(overlay);
+
+  const audio = new Audio('jumpscare.mp3');
+
+  const dismiss = () => {
+    if (!document.getElementById('jumpscare-overlay')) return;
+    overlay.remove();
+    if (callback) callback();
+  };
+
+  audio.addEventListener('ended', dismiss);
+  // Fallback: if audio fails or is very long, bail after 10s
+  const fallback = setTimeout(dismiss, 10000);
+  audio.addEventListener('ended', () => clearTimeout(fallback));
+
+  audio.play().catch(dismiss); // if autoplay is blocked, skip straight to callback
+}
+
+// ─────────────────────────────────────────────
 // Event delegation
 // ─────────────────────────────────────────────
 
@@ -265,7 +301,7 @@ document.addEventListener('click', e => {
   if (!btn) return;
   const { action, id, slot } = btn.dataset;
   if (action === 'toggle')          toggleSlot(id, Number(slot));
-  if (action === 'start-remove')    { confirmingId = id; renderTracker(); }
+  if (action === 'start-remove')    { triggerJumpscare(() => { confirmingId = id; renderTracker(); }); }
   if (action === 'cancel-remove')   { confirmingId = null; renderTracker(); }
   if (action === 'confirm-remove')  removeMember(id);
   if (action === 'show-add')        { showingAddForm = true; renderAddArea(); }
