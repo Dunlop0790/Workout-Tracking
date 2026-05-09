@@ -268,7 +268,7 @@ function renderWeeklyMVP(cw) {
   el.innerHTML = `
     <div class="mvp-banner">
       <span class="mvp-crown">👑</span>
-      <span class="mvp-text">${names} lead${plural ? '' : 's'} this week — ${max} session${max !== 1 ? 's' : ''}</span>
+      <span class="mvp-text">${names} lead${plural ? '' : 's'} this week - ${max} session${max !== 1 ? 's' : ''}</span>
     </div>`;
 }
 
@@ -295,13 +295,13 @@ function renderWeeklyRecap() {
   el.innerHTML = `
     <div class="recap-card">
       <button class="recap-toggle" data-action="toggle-recap">
-        📊 Last week — ${hitGoal.length}/${members.length} hit goal ${recapExpanded ? '▴' : '▾'}
+        Last week - ${hitGoal.length}/${members.length} hit goal ${recapExpanded ? '▴' : '▾'}
       </button>
       ${recapExpanded ? `
         <div class="recap-body">
-          <div class="recap-stat">👑 Leader: ${mvpText}</div>
-          <div class="recap-stat">✅ Hit goal: ${hitGoal.length > 0 ? hitGoal.map(m => esc(m.name)).join(', ') : 'Nobody'}</div>
-          ${missed.length > 0 ? `<div class="recap-stat">❌ Missed: ${missed.map(m => esc(m.name)).join(', ')}</div>` : ''}
+          <div class="recap-stat">Leader: ${mvpText}</div>
+          <div class="recap-stat">Hit goal: ${hitGoal.length > 0 ? hitGoal.map(m => esc(m.name)).join(', ') : 'Nobody'}</div>
+          ${missed.length > 0 ? `<div class="recap-stat">Missed: ${missed.map(m => esc(m.name)).join(', ')}</div>` : ''}
         </div>` : ''}
     </div>`;
 }
