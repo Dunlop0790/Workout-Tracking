@@ -60,4 +60,22 @@ alter publication supabase_realtime add table workouts;
 alter publication supabase_realtime add table lifts;
 alter publication supabase_realtime add table lift_entries;
 
+-- ─────────────────────────────────────────────
+-- NEW: Run these if upgrading an existing install
+-- ─────────────────────────────────────────────
+
+-- Workout type tagging (Lift / Run / Cardio / Sport / Other)
+alter table workouts add column if not exists workout_type text;
+
+-- Trash Talk comment feed
+create table if not exists comments (
+  id        bigserial primary key,
+  member_id text not null references members(id) on delete cascade,
+  content   text not null,
+  ts        bigint not null
+);
+alter table comments enable row level security;
+create policy "Allow all" on comments for all using (true) with check (true);
+alter publication supabase_realtime add table comments;
+
 */
