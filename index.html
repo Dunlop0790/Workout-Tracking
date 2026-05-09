@@ -36,6 +36,7 @@
     <nav class="tabs">
       <button class="tab-btn active" data-tab="tracker">Tracker</button>
       <button class="tab-btn" data-tab="leaderboard">Leaderboard</button>
+      <button class="tab-btn" data-tab="strength">Strength</button>
     </nav>
   </header>
 
@@ -55,6 +56,16 @@
       <button class="period-btn" data-period="12mo">12 months</button>
     </div>
     <div id="leaderboard-list"></div>
+  </section>
+
+  <!-- Strength -->
+  <section class="panel" id="panel-strength">
+    <div class="strength-picker-row">
+      <label for="strengthPicker" class="strength-picker-label">Viewing</label>
+      <select id="strengthPicker" class="strength-picker"></select>
+    </div>
+    <div id="strength-list"></div>
+    <div id="strength-add-area"></div>
   </section>
 
 </div>
