@@ -136,10 +136,40 @@ function renderHeader() {
 
 function renderTracker() {
   const cw = getMonday();
+  renderNudgeBanner(cw);
   document.getElementById('member-list').innerHTML = members.length === 0
     ? `<p class="empty-msg">No members yet.<br/>Add someone to get started.</p>`
     : members.map(m => memberRowHTML(m, cw)).join('');
   renderAddArea();
+}
+
+function renderNudgeBanner(cw) {
+  const banner = document.getElementById('nudge-banner');
+  if (!banner) return;
+
+  const dayOfWeek = new Date().getDay(); // 0 = Sunday, 1 = Monday, ...
+  // Show only Wed (3) onward, and on Sunday (0)
+  const showDay = dayOfWeek === 0 || dayOfWeek >= 3;
+  if (!showDay || members.length === 0) { banner.innerHTML = ''; return; }
+
+  const behind = members.filter(m =>
+    workouts.filter(w => w.member_id === m.id && w.week_start === cw).length < 3
+  );
+
+  if (behind.length === 0) { banner.innerHTML = ''; return; }
+
+  // Different tone depending on day
+  let prefix;
+  if (dayOfWeek === 0)        prefix = 'Last day to hit goal';   // Sunday
+  else if (dayOfWeek >= 5)    prefix = 'Running out of week';    // Fri/Sat
+  else                        prefix = 'Behind on the goal';     // Wed/Thu
+
+  const names = behind.map(m => esc(m.name)).join(', ');
+  banner.innerHTML = `
+    <div class="nudge">
+      <span class="nudge-label">${prefix}:</span>
+      <span class="nudge-names">${names}</span>
+    </div>`;
 }
 
 function memberRowHTML(m, cw) {

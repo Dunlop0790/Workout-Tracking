@@ -484,6 +484,47 @@ h1 {
 
 .lb-row:first-child .lb-bar-fill { background: #1a1a1a; }
 
+/* Top of leaderboard glow */
+.lb-row:first-child {
+  border-color: rgba(161, 98, 7, 0.35);
+  box-shadow: 0 0 0 1px rgba(161, 98, 7, 0.15), 0 0 18px rgba(234, 179, 8, 0.25);
+  animation: glow-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 1px rgba(161, 98, 7, 0.15), 0 0 14px rgba(234, 179, 8, 0.20);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(161, 98, 7, 0.25), 0 0 22px rgba(234, 179, 8, 0.40);
+  }
+}
+
+/* =========================
+   Nudge banner
+   ========================= */
+.nudge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 13px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.nudge-label {
+  font-weight: 600;
+  color: #9a3412;
+}
+
+.nudge-names {
+  color: #9a3412;
+}
+
 /* =========================
    Empty state
    ========================= */
