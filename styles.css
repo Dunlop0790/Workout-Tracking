@@ -1052,6 +1052,7 @@ h1 {
   font-family: inherit;
   cursor: pointer;
   transition: all 0.1s;
+  white-space: nowrap;
 }
 .type-pill:hover { background: var(--type-color); color: #fff; }
 .type-skip {
@@ -1064,20 +1065,15 @@ h1 {
   font-family: inherit;
   cursor: pointer;
 }
-/* Type color dots on checked buttons */
-.check-btn.checked[data-workout-type]::before {
-  content: '';
-  position: absolute;
-  bottom: 2px; left: 50%;
-  transform: translateX(-50%);
-  width: 6px; height: 6px;
-  border-radius: 50%;
+/* Type emoji inside checked buttons */
+.check-btn.checked[data-workout-type] {
+  color: initial;
+  font-size: 15px;
+  line-height: 1;
 }
-.check-btn.checked[data-workout-type="lift"]::before   { background: #7c3aed; }
-.check-btn.checked[data-workout-type="run"]::before    { background: #0891b2; }
-.check-btn.checked[data-workout-type="cardio"]::before { background: #0d9488; }
-.check-btn.checked[data-workout-type="sport"]::before  { background: #16a34a; }
-.check-btn.checked[data-workout-type="other"]::before  { background: #6b7280; }
+.check-btn.checked[data-workout-type]::after {
+  display: none;
+}
 
 /* =========================
    PR flash animation

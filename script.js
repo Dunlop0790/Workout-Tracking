@@ -21,11 +21,12 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const DEFAULT_LIFTS = ['Squat', 'Bench Press', 'Deadlift', 'Overhead Press'];
 
 const WORKOUT_TYPES = [
-  { key: 'lift',   label: '💪 Lift',   color: '#7c3aed' },
-  { key: 'run',    label: '🏃 Run',    color: '#0891b2' },
-  { key: 'cardio', label: '🚴 Cardio', color: '#0d9488' },
-  { key: 'sport',  label: '⚽ Sport',  color: '#16a34a' },
-  { key: 'other',  label: '✨ Other',  color: '#6b7280' },
+  { key: 'lift',  label: '💪 Lift',          color: '#7c3aed', emoji: '💪' },
+  { key: 'run',   label: '🏃 Run',           color: '#2563eb', emoji: '🏃' },
+  { key: 'cardio',label: '🚴 Cardio',        color: '#e11d48', emoji: '🚴' },
+  { key: 'sport', label: '⚽ Sport',         color: '#16a34a', emoji: '⚽' },
+  { key: 'cross', label: '🤸 Crosstraining', color: '#ea580c', emoji: '🤸' },
+  { key: 'other', label: '✨ Other',         color: '#64748b', emoji: '✨' },
 ];
 
 // ─────────────────────────────────────────────
@@ -268,7 +269,7 @@ function renderWeeklyMVP(cw) {
   el.innerHTML = `
     <div class="mvp-banner">
       <span class="mvp-crown">👑</span>
-      <span class="mvp-text">${names} lead${plural ? '' : 's'} this week - ${max} session${max !== 1 ? 's' : ''}</span>
+      <span class="mvp-text">${names} lead${plural ? '' : 's'} this week — ${max} session${max !== 1 ? 's' : ''}</span>
     </div>`;
 }
 
@@ -295,13 +296,13 @@ function renderWeeklyRecap() {
   el.innerHTML = `
     <div class="recap-card">
       <button class="recap-toggle" data-action="toggle-recap">
-        Last week - ${hitGoal.length}/${members.length} hit goal ${recapExpanded ? '▴' : '▾'}
+        📊 Last week — ${hitGoal.length}/${members.length} hit goal ${recapExpanded ? '▴' : '▾'}
       </button>
       ${recapExpanded ? `
         <div class="recap-body">
-          <div class="recap-stat">Leader: ${mvpText}</div>
-          <div class="recap-stat">Hit goal: ${hitGoal.length > 0 ? hitGoal.map(m => esc(m.name)).join(', ') : 'Nobody'}</div>
-          ${missed.length > 0 ? `<div class="recap-stat">Missed: ${missed.map(m => esc(m.name)).join(', ')}</div>` : ''}
+          <div class="recap-stat">👑 Leader: ${mvpText}</div>
+          <div class="recap-stat">✅ Hit goal: ${hitGoal.length > 0 ? hitGoal.map(m => esc(m.name)).join(', ') : 'Nobody'}</div>
+          ${missed.length > 0 ? `<div class="recap-stat">❌ Missed: ${missed.map(m => esc(m.name)).join(', ')}</div>` : ''}
         </div>` : ''}
     </div>`;
 }
@@ -345,9 +346,10 @@ function memberRowHTML(m, cw) {
     const workoutType     = existingWorkout?.workout_type || null;
     const isExtra         = slot > 3;
     const typeAttr        = workoutType ? ` data-workout-type="${workoutType}"` : '';
+    const typeEmoji = workoutType ? (WORKOUT_TYPES.find(t => t.key === workoutType)?.emoji || '') : '';
     return `<button class="check-btn ${checked ? 'checked' : ''} ${isExtra ? 'extra' : ''}"
               data-action="toggle" data-id="${m.id}" data-slot="${slot}"
-              aria-label="Workout ${slot}"${typeAttr}></button>`;
+              aria-label="Workout ${slot}"${typeAttr}>${typeEmoji}</button>`;
   }).join('');
 
   const extraLabel = count > 3 ? ` · +${count - 3} extra` : '';
