@@ -154,6 +154,7 @@ let comments              = [];
 let currentPeriod         = 'week';
 let currentStrengthMember = null;
 let confirmingId          = null;
+let doubleConfirmingId    = null;
 let showingAddForm        = false;
 let showingLiftForm       = false;
 let loggingLiftId         = null;
@@ -356,9 +357,15 @@ function memberRowHTML(m, cw) {
   const coolHtml   = count > 3 ? `<span class="cool-badge">&#8599; This guy is cool</span>` : '';
   const streakHtml = streak >= 2 ? `<span class="streak-badge">${streak}w streak</span>` : '';
 
-  const removeHtml = removing
+  const removeHtml = doubleConfirmingId === m.id
+    ? `<div class="confirm-wrap">
+         <span>You seriously wanna delete your name and ALL that history?</span>
+         <button class="confirm-yes" data-action="confirm-remove" data-id="${m.id}">Yes (wrong answer, but ok)</button>
+         <button class="confirm-no" data-action="cancel-remove">No</button>
+       </div>`
+    : removing
     ? `<div class="confirm-wrap"><span>Remove?</span>
-         <button class="confirm-yes" data-action="confirm-remove" data-id="${m.id}">Yes</button>
+         <button class="confirm-yes" data-action="double-confirm-remove" data-id="${m.id}">Yes</button>
          <button class="confirm-no" data-action="cancel-remove">No</button>
        </div>`
     : `<button class="remove-btn" data-action="start-remove" data-id="${m.id}">&#215;</button>`;
@@ -796,6 +803,7 @@ async function doAddMember() {
 
 async function removeMember(id) {
   confirmingId = null;
+  doubleConfirmingId = null;
   await db.from('members').delete().eq('id', id);
 }
 
@@ -912,7 +920,8 @@ document.addEventListener('click', e => {
 
   if (action === 'toggle')              toggleSlot(id, Number(slot));
   if (action === 'start-remove')        { triggerJumpscare(() => { confirmingId = id; renderTracker(); }); }
-  if (action === 'cancel-remove')       { confirmingId = null; renderTracker(); }
+  if (action === 'cancel-remove')       { confirmingId = null; doubleConfirmingId = null; renderTracker(); }
+  if (action === 'double-confirm-remove') { confirmingId = null; doubleConfirmingId = id; renderTracker(); }
   if (action === 'confirm-remove')      removeMember(id);
   if (action === 'show-add')            { showingAddForm = true; renderAddArea(); }
   if (action === 'cancel-add')          { showingAddForm = false; renderAddArea(); }
