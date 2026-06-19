@@ -4,14 +4,16 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Workout Club</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="styles.css"/>
 </head>
 <body>
 
 <div id="root">
 
-  <!-- Setup screen — only visible if config isn't filled in -->
+  <!-- Setup screen, only visible if config isn't filled in -->
   <div id="setup-screen" style="display:none; max-width:500px; margin:60px auto; padding:0 20px;">
     <div style="background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:12px; padding:28px; box-shadow:0 1px 4px rgba(0,0,0,0.07);">
       <h2 style="font-size:18px; font-weight:600; margin-bottom:8px;">Almost there</h2>
@@ -37,7 +39,7 @@
       <button class="tab-btn active" data-tab="tracker">Tracker</button>
       <button class="tab-btn" data-tab="leaderboard">Leaderboard</button>
       <button class="tab-btn" data-tab="strength">Strength</button>
-      <button class="tab-btn" data-tab="trash">Comments</button>
+      <button class="tab-btn" data-tab="trash">Trash Talk</button>
     </nav>
   </header>
 

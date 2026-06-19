@@ -46,7 +46,7 @@ function weekLabel(ws) {
   const e = new Date(d);
   e.setDate(e.getDate() + 6);
   const o = { month: 'short', day: 'numeric' };
-  return `Week of ${d.toLocaleDateString('en-US', o)} – ${e.toLocaleDateString('en-US', o)}`;
+  return `Week of ${d.toLocaleDateString('en-US', o)} to ${e.toLocaleDateString('en-US', o)}`;
 }
 
 function rangeStart(period) {
@@ -207,7 +207,7 @@ db.channel('db-changes')
   .subscribe();
 
 // ─────────────────────────────────────────────
-// Render — main
+// Render: main
 // ─────────────────────────────────────────────
 
 function render() {
@@ -221,7 +221,7 @@ function render() {
 }
 
 // ─────────────────────────────────────────────
-// Render — Header
+// Render: Header
 // ─────────────────────────────────────────────
 
 function renderHeader() {
@@ -238,7 +238,7 @@ function renderHeader() {
 }
 
 // ─────────────────────────────────────────────
-// Render — Tracker
+// Render: Tracker
 // ─────────────────────────────────────────────
 
 function renderTracker() {
@@ -265,12 +265,12 @@ function renderWeeklyMVP(cw) {
   const max     = Math.max(...counts.map(m => m.count));
   const leaders = counts.filter(m => m.count === max);
   const names   = leaders.map(m => `<strong>${esc(m.name)}</strong>`).join(', ');
-  const plural  = leaders.length > 1;
 
   el.innerHTML = `
-    <div class="mvp-banner">
-      <span class="mvp-crown">👑</span>
-      <span class="mvp-text">${names} lead${plural ? '' : 's'} this week — ${max} session${max !== 1 ? 's' : ''}</span>
+    <div class="mvp-stat">
+      <span class="mvp-stat-label">Leading this week</span>
+      <span class="mvp-stat-names">${names}</span>
+      <span class="mvp-stat-count">${max} session${max !== 1 ? 's' : ''}</span>
     </div>`;
 }
 
@@ -297,13 +297,22 @@ function renderWeeklyRecap() {
   el.innerHTML = `
     <div class="recap-card">
       <button class="recap-toggle" data-action="toggle-recap">
-        📊 Last week — ${hitGoal.length}/${members.length} hit goal ${recapExpanded ? '▴' : '▾'}
+        Last week: ${hitGoal.length}/${members.length} hit goal ${recapExpanded ? '▴' : '▾'}
       </button>
       ${recapExpanded ? `
         <div class="recap-body">
-          <div class="recap-stat">👑 Leader: ${mvpText}</div>
-          <div class="recap-stat">✅ Hit goal: ${hitGoal.length > 0 ? hitGoal.map(m => esc(m.name)).join(', ') : 'Nobody'}</div>
-          ${missed.length > 0 ? `<div class="recap-stat">❌ Missed: ${missed.map(m => esc(m.name)).join(', ')}</div>` : ''}
+          <div class="recap-row">
+            <span class="recap-row-label">Leader</span>
+            <span class="recap-row-value">${mvpText}</span>
+          </div>
+          <div class="recap-row">
+            <span class="recap-row-label">Hit goal</span>
+            <span class="recap-row-value">${hitGoal.length > 0 ? hitGoal.map(m => esc(m.name)).join(', ') : 'Nobody'}</span>
+          </div>
+          ${missed.length > 0 ? `<div class="recap-row">
+            <span class="recap-row-label">Missed</span>
+            <span class="recap-row-value">${missed.map(m => esc(m.name)).join(', ')}</span>
+          </div>` : ''}
         </div>` : ''}
     </div>`;
 }
@@ -417,7 +426,7 @@ function renderAddArea() {
 }
 
 // ─────────────────────────────────────────────
-// Render — Leaderboard
+// Render: Leaderboard
 // ─────────────────────────────────────────────
 
 function renderLeaderboard() {
@@ -446,7 +455,7 @@ function renderLeaderboard() {
 }
 
 // ─────────────────────────────────────────────
-// Render — Hall of Fame
+// Render: Hall of Fame
 // ─────────────────────────────────────────────
 
 function renderHallOfFame() {
@@ -483,25 +492,24 @@ function renderHallOfFame() {
 
   el.innerHTML = `
     <div class="hof-grid">
-      ${hofCard('👑', 'Most Sessions All-Time', allTime[0]?.count > 0 ? allTime[0].name : null, allTime[0]?.count > 0 ? `${allTime[0].count} sessions` : null)}
-      ${hofCard('🔥', 'Longest Active Streak', streaks[0]?.streak > 0 ? streaks[0].name : null, streaks[0]?.streak > 0 ? `${streaks[0].streak}w` : null)}
-      ${hofCard('📅', 'Leader This Month', monthly[0]?.count > 0 ? monthly[0].name : null, monthly[0]?.count > 0 ? `${monthly[0].count} sessions` : null)}
-      ${hofCard('⚡', 'Best Single Week', bestWeekMember ? bestWeekMember.name : null, bestWeekMember ? `${bestWeekCount} sessions` : null)}
+      ${hofCard('Most Sessions All-Time', allTime[0]?.count > 0 ? allTime[0].name : null, allTime[0]?.count > 0 ? `${allTime[0].count} sessions` : null)}
+      ${hofCard('Longest Active Streak', streaks[0]?.streak > 0 ? streaks[0].name : null, streaks[0]?.streak > 0 ? `${streaks[0].streak}w` : null)}
+      ${hofCard('Leader This Month', monthly[0]?.count > 0 ? monthly[0].name : null, monthly[0]?.count > 0 ? `${monthly[0].count} sessions` : null)}
+      ${hofCard('Best Single Week', bestWeekMember ? bestWeekMember.name : null, bestWeekMember ? `${bestWeekCount} sessions` : null)}
     </div>`;
 }
 
-function hofCard(emoji, label, name, value) {
+function hofCard(label, name, value) {
   return `
     <div class="hof-card">
-      <div class="hof-emoji">${emoji}</div>
       <div class="hof-label">${label}</div>
-      <div class="hof-name">${name ? esc(name) : '—'}</div>
+      <div class="hof-name">${name ? esc(name) : 'No data yet'}</div>
       ${value ? `<div class="hof-value">${esc(value)}</div>` : ''}
     </div>`;
 }
 
 // ─────────────────────────────────────────────
-// Render — Head to Head
+// Render: Head to Head
 // ─────────────────────────────────────────────
 
 function renderHeadToHead() {
@@ -564,7 +572,7 @@ function getMemberStats(memberId, cw, monthStart) {
 }
 
 // ─────────────────────────────────────────────
-// Render — Trash Talk
+// Render: Trash Talk
 // ─────────────────────────────────────────────
 
 function renderTrashTalk() {
@@ -624,7 +632,7 @@ function renderTrashFeed() {
 }
 
 // ─────────────────────────────────────────────
-// Render — Strength
+// Render: Strength
 // ─────────────────────────────────────────────
 
 function renderStrength() {
@@ -731,7 +739,7 @@ function liftCardHTML(liftName, memberId) {
         <div class="lift-name">
           ${esc(liftName)}
           ${isCustom ? '<span class="lift-custom-tag">custom</span>' : ''}
-          ${isNewPR ? '<span class="pr-badge">🎉 New PR!</span>' : ''}
+          ${isNewPR ? '<span class="pr-badge">New PR</span>' : ''}
         </div>
         ${removeCustom}
       </div>
@@ -766,7 +774,7 @@ function renderStrengthAddArea() {
 }
 
 // ─────────────────────────────────────────────
-// Actions — Workouts
+// Actions: Workouts
 // ─────────────────────────────────────────────
 
 async function toggleSlot(memberId, slot) {
@@ -808,7 +816,7 @@ async function removeMember(id) {
 }
 
 // ─────────────────────────────────────────────
-// Actions — Strength
+// Actions: Strength
 // ─────────────────────────────────────────────
 
 async function saveLiftEntry(liftName) {
@@ -865,7 +873,7 @@ async function removeCustomLift(liftName) {
 }
 
 // ─────────────────────────────────────────────
-// Actions — Trash Talk
+// Actions: Trash Talk
 // ─────────────────────────────────────────────
 
 async function postComment() {
