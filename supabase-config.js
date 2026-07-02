@@ -64,7 +64,7 @@ alter publication supabase_realtime add table lift_entries;
 -- NEW: Run these if upgrading an existing install
 -- ─────────────────────────────────────────────
 
--- Workout type tagging (Lift / Run / Cardio / Sport / Other)
+-- Workout type tagging (Lift / Run / Cardio / Sport / Crosstraining / Other)
 alter table workouts add column if not exists workout_type text;
 
 -- Trash Talk comment feed
