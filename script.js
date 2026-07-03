@@ -29,13 +29,6 @@ const WORKOUT_TYPES = [
   { key: 'other', label: '✨ Other',         color: '#64748b', emoji: '✨' },
 ];
 
-const MEALS = [
-  { key: 'breakfast', label: 'Breakfast' },
-  { key: 'lunch',     label: 'Lunch' },
-  { key: 'dinner',    label: 'Dinner' },
-  { key: 'snacks',    label: 'Snacks' },
-];
-
 const MASS_UNITS = [
   { key: 'g',  label: 'grams',  grams: 1 },
   { key: 'oz', label: 'oz',     grams: 28.3495 },
@@ -226,8 +219,8 @@ let foodServings          = [];
 let foodLog               = [];
 let macroGoals            = [];
 let nutMember             = null;
-let nutDate               = new Date().toISOString().split('T')[0];
-let addFoodMeal           = null;
+let nutDate               = localDateStr(new Date());
+let addFoodOpen           = false;
 let pendingLogFoodId      = null;
 let foodFormMode          = null;
 let editingFoodId         = null;
@@ -996,15 +989,27 @@ function macrosFor(food, grams) {
   };
 }
 
+function localDateStr(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
 function shiftNutDate(days) {
   const d = new Date(nutDate + 'T12:00:00');
   d.setDate(d.getDate() + days);
-  nutDate = d.toISOString().split('T')[0];
+  nutDate = localDateStr(d);
 }
 
-function nutDateLabel() {
-  const today = new Date().toISOString().split('T')[0];
-  if (nutDate === today) return 'Today';
+// The diary day for a member starts at their day_start time. Before that
+// time of day, "today" is still the previous calendar date.
+function effectiveDiaryToday(dayStart, now) {
+  const hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+  const d = new Date(now);
+  if (hhmm < dayStart) d.setDate(d.getDate() - 1);
+  return localDateStr(d);
+}
+
+function nutDateLabel(todayStr) {
+  if (nutDate === todayStr) return 'Today';
   return new Date(nutDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
@@ -1013,7 +1018,7 @@ function renderNutrition() {
   // Realtime refreshes must not destroy an open search or form mid-typing.
   // Actions call the render functions directly, bypassing these guards.
   if (!dbFormMode) renderFoodDb();
-  if (addFoodMeal || editingGoals || goalCalcOpen || goalCalcResult) return;
+  if (addFoodOpen || editingGoals || goalCalcOpen || goalCalcResult) return;
   renderNutritionBody();
 }
 
@@ -1115,8 +1120,11 @@ function renderNutritionBody() {
   if (members.length === 0) { body.innerHTML = `<p class="empty-msg">No members yet.</p>`; return; }
   if (!nutMember) { body.innerHTML = `<p class="empty-msg">Pick a member to view their food log.</p>`; return; }
 
-  const entries = foodLog.filter(e => e.member_id === nutMember && e.log_date === nutDate);
-  const goals   = macroGoals.find(g => g.member_id === nutMember);
+  const member   = members.find(m => m.id === nutMember);
+  const dayStart = member.day_start;
+  const todayEff = effectiveDiaryToday(dayStart, new Date());
+  const entries  = foodLog.filter(e => e.member_id === nutMember && e.log_date === nutDate);
+  const goals    = macroGoals.find(g => g.member_id === nutMember);
 
   const totals = entries.reduce((acc, e) => {
     const food = foodById(e.food_id);
@@ -1129,11 +1137,15 @@ function renderNutritionBody() {
   body.innerHTML = `
     <div class="nut-daynav">
       <button class="nut-daybtn" data-action="nut-prev-day">&#8249; Prev</button>
-      <span class="nut-daylabel">${nutDateLabel()}</span>
+      <span class="nut-daylabel">${nutDateLabel(todayEff)}</span>
       <button class="nut-daybtn" data-action="nut-next-day">Next &#8250;</button>
     </div>
+    <div class="day-start-row">
+      <span>Day starts at</span>
+      <input type="time" id="dayStartInput" value="${dayStart}"/>
+    </div>
     ${totalsCardHTML(totals, goals)}
-    ${MEALS.map(meal => mealCardHTML(meal, entries)).join('')}`;
+    ${logCardHTML(entries, dayStart)}`;
 }
 
 function totalsCardHTML(totals, goals) {
@@ -1192,19 +1204,32 @@ function totalsCardHTML(totals, goals) {
     </div>`;
 }
 
-function mealCardHTML(meal, entries) {
-  const mealEntries = entries.filter(e => e.meal === meal.key);
-  const subtotal = mealEntries.reduce((sum, e) => {
-    const food = foodById(e.food_id);
-    return food ? sum + macrosFor(food, e.grams).cal : sum;
-  }, 0);
+function nowHHMM() {
+  const d = new Date();
+  return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+}
 
-  const rows = mealEntries.map(e => {
+function formatLogTime(hhmm) {
+  if (!hhmm) return '';
+  const [h, m] = hhmm.split(':').map(Number);
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+function logCardHTML(entries, dayStart) {
+  // Times before day_start belong to the tail of the diary day, so they
+  // sort after evening entries (e.g. 23:00 then 01:30 for a 06:00 start).
+  const sortKey = e => ((e.log_time || '') < dayStart ? '1' : '0') + (e.log_time || '');
+  const sorted = [...entries].sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+
+  const rows = sorted.map(e => {
     const food = foodById(e.food_id);
     if (!food) return '';
     const m = macrosFor(food, e.grams);
     return `
       <div class="food-row">
+        <span class="log-time">${formatLogTime(e.log_time)}</span>
         <div class="food-row-name">
           ${iconSvg(food.icon)}${esc(food.name)}${food.brand ? ` <span class="food-row-brand">${esc(food.brand)}</span>` : ''}
           <div class="food-row-detail">${Math.round(e.grams)} g</div>
@@ -1214,17 +1239,17 @@ function mealCardHTML(meal, entries) {
       </div>`;
   }).join('');
 
-  const addArea = addFoodMeal === meal.key
+  const addArea = addFoodOpen
     ? foodAddPanelHTML()
-    : `<button class="add-trigger meal-add" data-action="nut-open-add" data-meal="${meal.key}">+ Add food</button>`;
+    : `<button class="add-trigger log-add" data-action="nut-open-add">+ Add food</button>`;
 
   return `
-    <div class="meal-card">
-      <div class="meal-header">
-        <span>${meal.label}</span>
-        ${mealEntries.length > 0 ? `<span class="meal-sub">${Math.round(subtotal)} cal</span>` : ''}
+    <div class="log-card">
+      <div class="log-card-header">
+        <span>Log</span>
+        ${sorted.length > 0 ? `<span class="log-card-sub">${sorted.length} item${sorted.length !== 1 ? 's' : ''}</span>` : ''}
       </div>
-      ${rows}
+      ${rows || `<p class="empty-msg log-empty">Nothing logged this day.</p>`}
       ${addArea}
     </div>`;
 }
@@ -1238,7 +1263,7 @@ function foodAddPanelHTML() {
       <div id="food-search-results">${foodSearchResultsHTML()}</div>
       <div class="food-panel-actions">
         <button class="lift-history-toggle" data-action="nut-new-food">+ New food</button>
-        <button class="lift-history-toggle" data-action="nut-cancel-add">Cancel</button>
+        <button class="lift-history-toggle" data-action="nut-cancel-add">Close</button>
       </div>
     </div>`;
 }
@@ -1279,10 +1304,11 @@ function logFormHTML() {
           ${servings.map((sv, i) => `<option value="${sv.id}" ${i === 0 ? 'selected' : ''}>${esc(sv.label)} (${sv.grams}g)</option>`).join('')}
           ${MASS_UNITS.map(u => `<option value="${u.key}">${u.label}</option>`).join('')}
         </select>
+        <input type="time" id="logTime" class="lift-input log-time-input" value="${nowHHMM()}"/>
       </div>
       <div class="form-error" id="logError"></div>
       <div class="goals-form-row">
-        <button class="lift-save" data-action="nut-log-food">Add to ${addFoodMeal}</button>
+        <button class="lift-save" data-action="nut-log-food">Add to log</button>
         <button class="lift-history-toggle" data-action="nut-edit-food" data-food-id="${food.id}">Edit food</button>
         <button class="lift-cancel" data-action="nut-back-to-search">&#215;</button>
       </div>
@@ -1393,7 +1419,12 @@ async function logFood() {
     showFormError('logError', 'Enter an amount greater than zero.');
     return;
   }
-  if (!pendingLogFoodId || !addFoodMeal || !nutMember) return;
+  const logTime = document.getElementById('logTime')?.value;
+  if (!logTime) {
+    showFormError('logError', 'Enter a time.');
+    return;
+  }
+  if (!pendingLogFoodId || !nutMember) return;
 
   let grams;
   const massUnit = MASS_UNITS.find(u => u.key === unit);
@@ -1408,12 +1439,12 @@ async function logFood() {
   const entry = {
     member_id: nutMember,
     log_date:  nutDate,
-    meal:      addFoodMeal,
+    log_time:  logTime,
     food_id:   pendingLogFoodId,
     grams,
   };
 
-  addFoodMeal = null;
+  addFoodOpen = false;
   pendingLogFoodId = null;
   foodSearchQuery = '';
   renderNutritionBody();
@@ -1678,7 +1709,7 @@ function triggerJumpscare(callback) {
 document.addEventListener('click', e => {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
-  const { action, id, slot, lift, entryId, commentId, memberId, type, meal, foodId, logId } = btn.dataset;
+  const { action, id, slot, lift, entryId, commentId, memberId, type, foodId, logId } = btn.dataset;
 
   if (action === 'toggle')              toggleSlot(id, Number(slot));
   if (action === 'start-remove')        { triggerJumpscare(() => { confirmingId = id; renderTracker(); }); }
@@ -1707,7 +1738,7 @@ document.addEventListener('click', e => {
 
   if (action === 'nut-prev-day')        { shiftNutDate(-1); resetNutPanels(); renderNutritionBody(); }
   if (action === 'nut-next-day')        { shiftNutDate(1);  resetNutPanels(); renderNutritionBody(); }
-  if (action === 'nut-open-add')        { resetNutPanels(); addFoodMeal = meal; renderNutritionBody(); focusFoodSearch(); }
+  if (action === 'nut-open-add')        { resetNutPanels(); addFoodOpen = true; renderNutritionBody(); focusFoodSearch(); }
   if (action === 'nut-cancel-add')      { resetNutPanels(); renderNutritionBody(); }
   if (action === 'nut-pick-food')       { pendingLogFoodId = foodId; renderNutritionBody(); }
   if (action === 'nut-back-to-search')  { pendingLogFoodId = null; renderNutritionBody(); focusFoodSearch(); }
@@ -1743,7 +1774,7 @@ document.addEventListener('click', e => {
 });
 
 function resetNutPanels() {
-  addFoodMeal = null;
+  addFoodOpen = false;
   pendingLogFoodId = null;
   foodFormMode = null;
   editingFoodId = null;
@@ -1790,10 +1821,23 @@ document.getElementById('panel-trash').addEventListener('change', e => {
 
 document.getElementById('nutritionPicker').addEventListener('change', e => {
   nutMember = e.target.value || null;
-  addFoodMeal = null; pendingLogFoodId = null; foodFormMode = null;
+  addFoodOpen = false; pendingLogFoodId = null; foodFormMode = null;
   editingFoodId = null; editingGoals = false; foodSearchQuery = '';
   goalCalcOpen = false; goalCalcResult = null;
+  const m = members.find(x => x.id === nutMember);
+  if (m) nutDate = effectiveDiaryToday(m.day_start, new Date());
   renderNutrition();
+});
+
+document.getElementById('panel-nutrition').addEventListener('change', e => {
+  if (e.target.id === 'dayStartInput' && nutMember) {
+    const v = e.target.value;
+    if (!v) return;
+    const m = members.find(x => x.id === nutMember);
+    m.day_start = v;
+    db.from('members').update({ day_start: v }).eq('id', nutMember);
+    renderNutritionBody();
+  }
 });
 
 document.getElementById('panel-nutrition').addEventListener('input', e => {

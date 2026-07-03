@@ -17,7 +17,8 @@ const SUPABASE_ANON_KEY = 'sb_publishable_12oD7DfkMRTOmmk9GZF_6A_ncX2CwhU';   //
 create table members (
   id        text primary key,
   name      text not null,
-  joined    text not null
+  joined    text not null,
+  day_start text not null default '00:00'
 );
 
 create table workouts (
@@ -100,7 +101,7 @@ create table if not exists food_log (
   id        bigserial primary key,
   member_id text not null references members(id) on delete cascade,
   log_date  text not null,
-  meal      text not null,
+  log_time  text not null,
   food_id   text not null references foods(id) on delete restrict,
   grams     numeric not null
 );
@@ -130,5 +131,19 @@ alter publication supabase_realtime add table macro_goals;
 
 -- Food icons (category icon key shown next to food names)
 alter table foods add column if not exists icon text;
+
+-- Migrate meal slots to times (chronological log)
+alter table food_log add column if not exists log_time text;
+update food_log set log_time = case meal
+  when 'breakfast' then '08:00'
+  when 'lunch'     then '12:00'
+  when 'dinner'    then '18:00'
+  else '15:00'
+end where log_time is null;
+alter table food_log alter column log_time set not null;
+alter table food_log drop column if exists meal;
+
+-- Per-member diary day start (night shift support)
+alter table members add column if not exists day_start text not null default '00:00';
 
 */
