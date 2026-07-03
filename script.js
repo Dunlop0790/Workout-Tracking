@@ -184,6 +184,11 @@ let foodFormMode          = null;
 let editingFoodId         = null;
 let editingGoals          = false;
 let foodSearchQuery       = '';
+let dbSearch              = '';
+let dbFormMode            = null;
+let dbEditingId           = null;
+let goalCalcOpen          = false;
+let goalCalcResult        = null;
 
 // ─────────────────────────────────────────────
 // Data
@@ -957,9 +962,85 @@ function nutDateLabel() {
 function renderNutrition() {
   renderNutritionPicker();
   // Realtime refreshes must not destroy an open search or form mid-typing.
-  // Actions call renderNutritionBody() directly, bypassing this guard.
-  if (addFoodMeal || editingGoals) return;
+  // Actions call the render functions directly, bypassing these guards.
+  if (!dbFormMode) renderFoodDb();
+  if (addFoodMeal || editingGoals || goalCalcOpen || goalCalcResult) return;
   renderNutritionBody();
+}
+
+// ─────────────────────────────────────────────
+// Render: Food database panel
+// ─────────────────────────────────────────────
+
+function renderFoodDb() {
+  const el = document.getElementById('food-db');
+  if (!el) return;
+  if (dbFormMode) { el.innerHTML = dbFoodFormHTML(); return; }
+  // Preserve focus while typing in the search box: update the list only.
+  if (document.activeElement && document.activeElement.id === 'dbSearch') {
+    renderDbFoodList();
+    return;
+  }
+  el.innerHTML = `
+    <input class="add-input db-search" id="dbSearch" placeholder="Search foods" value="${esc(dbSearch)}"/>
+    <div id="db-food-list">${dbFoodListHTML()}</div>
+    <button class="add-trigger" data-action="db-new-food">+ New food</button>`;
+}
+
+function dbFoodListHTML() {
+  if (foods.length === 0) return `<p class="empty-msg food-empty">No foods yet. Add the first one.</p>`;
+  const q = dbSearch.trim().toLowerCase();
+  const matches = q
+    ? foods.filter(f => f.name.toLowerCase().includes(q) || (f.brand || '').toLowerCase().includes(q))
+    : foods;
+  if (matches.length === 0) return `<p class="empty-msg food-empty">No matches.</p>`;
+  const shown = matches.slice(0, 12);
+  return shown.map(f => `
+    <button class="food-result" data-action="db-edit-food" data-food-id="${f.id}">
+      <span class="food-result-name">${esc(f.name)}${f.brand ? ` <span class="food-row-brand">${esc(f.brand)}</span>` : ''}</span>
+      <span class="food-row-stats">${Math.round(f.calories)} cal / 100g</span>
+    </button>`).join('') +
+    (matches.length > shown.length ? `<p class="db-more">${matches.length - shown.length} more, refine your search</p>` : '');
+}
+
+function renderDbFoodList() {
+  const el = document.getElementById('db-food-list');
+  if (el) el.innerHTML = dbFoodListHTML();
+}
+
+function dbFoodFormHTML() {
+  const editing = dbFormMode === 'edit' ? foodById(dbEditingId) : null;
+  const f = editing || { name: '', brand: '', calories: '', protein: '', carbs: '', fat: '' };
+
+  return `
+    <div class="log-food-header">
+      <div class="food-result-name">${editing ? 'Edit food' : 'New food'}</div>
+      <div class="food-row-stats">Nutrition values are per 100g</div>
+    </div>
+    <div class="goals-form-row">
+      <input id="dbName"  class="add-input" placeholder="Name" value="${esc(f.name)}"/>
+    </div>
+    <div class="goals-form-row">
+      <input id="dbBrand" class="add-input" placeholder="Brand (optional)" value="${esc(f.brand || '')}"/>
+    </div>
+    <div class="goals-form-row">
+      <input type="number" inputmode="decimal" id="dbCal" class="lift-input" placeholder="Calories" value="${f.calories}"/>
+      <input type="number" inputmode="decimal" id="dbPro" class="lift-input" placeholder="Protein g" value="${f.protein}"/>
+    </div>
+    <div class="goals-form-row">
+      <input type="number" inputmode="decimal" id="dbCarb" class="lift-input" placeholder="Carbs g" value="${f.carbs}"/>
+      <input type="number" inputmode="decimal" id="dbFat"  class="lift-input" placeholder="Fat g" value="${f.fat}"/>
+    </div>
+    ${!editing ? `
+    <div class="goals-form-row">
+      <input id="dbServLabel" class="add-input" placeholder="Serving name (optional)"/>
+      <input type="number" inputmode="decimal" id="dbServGrams" class="lift-input" placeholder="Grams"/>
+    </div>` : ''}
+    <div class="goals-form-row">
+      <button class="lift-save" data-action="db-save-food">${editing ? 'Save' : 'Add food'}</button>
+      ${editing ? `<button class="lift-history-toggle" data-action="db-delete-food" data-food-id="${editing.id}">Delete</button>` : ''}
+      <button class="lift-cancel" data-action="db-cancel-food">&#215;</button>
+    </div>`;
 }
 
 function renderNutritionPicker() {
@@ -1033,8 +1114,16 @@ function totalsCardHTML(totals, goals) {
           <button class="lift-cancel" data-action="nut-cancel-goals">&#215;</button>
         </div>
       </div>`;
+  } else if (goalCalcOpen) {
+    goalsArea = goalCalcFormHTML();
+  } else if (goalCalcResult) {
+    goalsArea = goalCalcPreviewHTML();
   } else {
-    goalsArea = `<button class="lift-history-toggle" data-action="nut-edit-goals">${goals ? 'Edit goals' : 'Set goals'}</button>`;
+    goalsArea = `
+      <div class="goals-actions">
+        <button class="lift-history-toggle" data-action="nut-edit-goals">${goals ? 'Edit goals' : 'Set goals'}</button>
+        <button class="lift-history-toggle" data-action="nut-calc-goals">Calculate goals</button>
+      </div>`;
   }
 
   return `
@@ -1262,6 +1351,177 @@ async function saveGoals() {
 }
 
 // ─────────────────────────────────────────────
+// Goal calculator
+// Mifflin-St Jeor BMR, activity multiplier plus a training bump
+// (0.1 per 3 weekly sessions), goal rate at 500 cal per lb per week.
+// Protein by bodyweight (1.0 g/lb cutting, 0.8 otherwise), fat 25%
+// of calories, carbs from the remainder.
+// ─────────────────────────────────────────────
+
+function goalCalcFormHTML() {
+  return `
+    <div class="goals-form">
+      <div class="goals-form-row">
+        <select id="gcSex" class="strength-picker">
+          <option value="">Sex</option>
+          <option value="m">Male</option>
+          <option value="f">Female</option>
+        </select>
+        <input type="number" inputmode="numeric" id="gcAge" class="lift-input" placeholder="Age"/>
+      </div>
+      <div class="goals-form-row">
+        <input type="number" inputmode="numeric" id="gcFt" class="lift-input" placeholder="Height ft"/>
+        <input type="number" inputmode="numeric" id="gcIn" class="lift-input" placeholder="Height in"/>
+        <input type="number" inputmode="decimal" id="gcWeight" class="lift-input" placeholder="Weight lb"/>
+      </div>
+      <div class="goals-form-row">
+        <select id="gcActivity" class="strength-picker">
+          <option value="">Activity outside the gym</option>
+          <option value="1.2">Sedentary (desk job, little walking)</option>
+          <option value="1.3">Lightly active</option>
+          <option value="1.4">Moderately active</option>
+          <option value="1.5">Very active</option>
+          <option value="1.6">Extremely active (physical job)</option>
+        </select>
+      </div>
+      <div class="goals-form-row">
+        <input type="number" inputmode="numeric" id="gcSessions" class="lift-input" placeholder="Workouts per week"/>
+      </div>
+      <div class="goals-form-row">
+        <select id="gcGoal" class="strength-picker">
+          <option value="">Goal</option>
+          <option value="lose">Lose weight</option>
+          <option value="maintain">Maintain</option>
+          <option value="gain">Gain weight</option>
+        </select>
+        <select id="gcRate" class="strength-picker">
+          <option value="">Rate</option>
+          <option value="0.25">0.25 lb/week</option>
+          <option value="0.5">0.5 lb/week</option>
+          <option value="0.75">0.75 lb/week</option>
+          <option value="1">1 lb/week</option>
+          <option value="1.5">1.5 lb/week</option>
+          <option value="2">2 lb/week</option>
+        </select>
+      </div>
+      <div class="goals-form-row">
+        <button class="lift-save" data-action="nut-run-goal-calc">Calculate</button>
+        <button class="lift-cancel" data-action="nut-calc-cancel">&#215;</button>
+      </div>
+    </div>`;
+}
+
+function goalCalcPreviewHTML() {
+  const r = goalCalcResult;
+  return `
+    <div class="goals-form">
+      <div class="calc-result">
+        <div class="calc-result-cal">${r.cal} <span class="nut-cal-goal">cal/day</span></div>
+        <div class="calc-result-macros">Protein ${r.pro} g · Carbs ${r.carb} g · Fat ${r.fat} g</div>
+        ${r.warn ? `<div class="calc-warn">${r.warn}</div>` : ''}
+      </div>
+      <div class="goals-form-row">
+        <button class="lift-save" data-action="nut-apply-goal-calc">Use these goals</button>
+        <button class="lift-history-toggle" data-action="nut-calc-goals">Recalculate</button>
+        <button class="lift-cancel" data-action="nut-calc-cancel">&#215;</button>
+      </div>
+    </div>`;
+}
+
+function runGoalCalc() {
+  const sex      = document.getElementById('gcSex')?.value;
+  const age      = parseInt(document.getElementById('gcAge')?.value, 10);
+  const ft       = parseInt(document.getElementById('gcFt')?.value, 10);
+  const inches   = parseInt(document.getElementById('gcIn')?.value, 10) || 0;
+  const lb       = parseFloat(document.getElementById('gcWeight')?.value);
+  const activity = parseFloat(document.getElementById('gcActivity')?.value);
+  const sessions = parseInt(document.getElementById('gcSessions')?.value, 10);
+  const goal     = document.getElementById('gcGoal')?.value;
+  const rate     = parseFloat(document.getElementById('gcRate')?.value);
+
+  if (!sex || !age || !ft || !lb || !activity || isNaN(sessions) || !goal) return;
+  if (goal !== 'maintain' && !rate) return;
+
+  const kg  = lb * 0.4536;
+  const cm  = (ft * 12 + inches) * 2.54;
+  const bmr = sex === 'm'
+    ? 10 * kg + 6.25 * cm - 5 * age + 5
+    : 10 * kg + 6.25 * cm - 5 * age - 161;
+
+  const mult  = activity + 0.1 * (sessions / 3);
+  const tdee  = bmr * mult;
+  const delta = goal === 'maintain' ? 0 : (goal === 'lose' ? -1 : 1) * rate * 500;
+  const cal   = Math.round(tdee + delta);
+
+  const pro  = Math.round((goal === 'lose' ? 1.0 : 0.8) * lb);
+  const fat  = Math.round(cal * 0.25 / 9);
+  const carb = Math.round((cal - pro * 4 - fat * 9) / 4);
+
+  let warn = null;
+  if (cal < bmr) warn = 'This target is below your estimated BMR. Consider a slower rate.';
+  if (carb < 0)  warn = 'This target is too low to fit the protein and fat minimums. Pick a slower rate.';
+
+  goalCalcOpen = false;
+  goalCalcResult = { cal, pro, carb: Math.max(0, carb), fat, warn };
+  renderNutritionBody();
+}
+
+async function applyGoalCalc() {
+  if (!goalCalcResult || !nutMember) return;
+  const r = goalCalcResult;
+  goalCalcResult = null;
+  renderNutritionBody();
+  await db.from('macro_goals').upsert({ member_id: nutMember, calories: r.cal, protein: r.pro, carbs: r.carb, fat: r.fat });
+}
+
+// ─────────────────────────────────────────────
+// Actions: Food database panel
+// ─────────────────────────────────────────────
+
+async function saveDbFood() {
+  const name  = document.getElementById('dbName')?.value.trim();
+  const brand = document.getElementById('dbBrand')?.value.trim() || null;
+  const cal   = parseFloat(document.getElementById('dbCal')?.value);
+  const pro   = parseFloat(document.getElementById('dbPro')?.value);
+  const carb  = parseFloat(document.getElementById('dbCarb')?.value);
+  const fat   = parseFloat(document.getElementById('dbFat')?.value);
+  if (!name || isNaN(cal) || isNaN(pro) || isNaN(carb) || isNaN(fat)) return;
+  if (cal < 0 || pro < 0 || carb < 0 || fat < 0) return;
+
+  if (dbFormMode === 'edit') {
+    const id = dbEditingId;
+    dbFormMode = null;
+    dbEditingId = null;
+    renderFoodDb();
+    await db.from('foods').update({ name, brand, calories: cal, protein: pro, carbs: carb, fat }).eq('id', id);
+    return;
+  }
+
+  const id = 'f' + Date.now();
+  const servLabel = document.getElementById('dbServLabel')?.value.trim();
+  const servGrams = parseFloat(document.getElementById('dbServGrams')?.value);
+
+  dbFormMode = null;
+  renderFoodDb();
+
+  await db.from('foods').insert({ id, name, brand, calories: cal, protein: pro, carbs: carb, fat });
+  if (servLabel && servGrams > 0) {
+    await db.from('food_servings').insert({ id: 's' + Date.now(), food_id: id, label: servLabel, grams: servGrams });
+  }
+}
+
+async function deleteDbFood(foodId) {
+  const { error } = await db.from('foods').delete().eq('id', foodId);
+  if (error) {
+    alert('This food has logged entries and cannot be deleted.');
+    return;
+  }
+  dbFormMode = null;
+  dbEditingId = null;
+  renderFoodDb();
+}
+
+// ─────────────────────────────────────────────
 // Jumpscare
 // ─────────────────────────────────────────────
 
@@ -1336,9 +1596,19 @@ document.addEventListener('click', e => {
   if (action === 'nut-edit-food')       { foodFormMode = 'edit'; editingFoodId = foodId; renderNutritionBody(); }
   if (action === 'nut-save-food')       saveFood();
   if (action === 'nut-cancel-food')     { foodFormMode = null; editingFoodId = null; renderNutritionBody(); }
-  if (action === 'nut-edit-goals')      { editingGoals = true; renderNutritionBody(); }
+  if (action === 'nut-edit-goals')      { editingGoals = true; goalCalcOpen = false; goalCalcResult = null; renderNutritionBody(); }
   if (action === 'nut-save-goals')      saveGoals();
   if (action === 'nut-cancel-goals')    { editingGoals = false; renderNutritionBody(); }
+  if (action === 'nut-calc-goals')      { goalCalcOpen = true; goalCalcResult = null; editingGoals = false; renderNutritionBody(); }
+  if (action === 'nut-run-goal-calc')   runGoalCalc();
+  if (action === 'nut-apply-goal-calc') applyGoalCalc();
+  if (action === 'nut-calc-cancel')     { goalCalcOpen = false; goalCalcResult = null; renderNutritionBody(); }
+
+  if (action === 'db-new-food')         { dbFormMode = 'create'; dbEditingId = null; renderFoodDb(); }
+  if (action === 'db-edit-food')        { dbFormMode = 'edit'; dbEditingId = foodId; renderFoodDb(); }
+  if (action === 'db-save-food')        saveDbFood();
+  if (action === 'db-cancel-food')      { dbFormMode = null; dbEditingId = null; renderFoodDb(); }
+  if (action === 'db-delete-food')      deleteDbFood(foodId);
 });
 
 function resetNutPanels() {
@@ -1391,6 +1661,7 @@ document.getElementById('nutritionPicker').addEventListener('change', e => {
   nutMember = e.target.value || null;
   addFoodMeal = null; pendingLogFoodId = null; foodFormMode = null;
   editingFoodId = null; editingGoals = false; foodSearchQuery = '';
+  goalCalcOpen = false; goalCalcResult = null;
   renderNutrition();
 });
 
@@ -1398,6 +1669,10 @@ document.getElementById('panel-nutrition').addEventListener('input', e => {
   if (e.target.id === 'foodSearch') {
     foodSearchQuery = e.target.value;
     renderFoodSearchResults();
+  }
+  if (e.target.id === 'dbSearch') {
+    dbSearch = e.target.value;
+    renderDbFoodList();
   }
 });
 document.getElementById('panel-trash').addEventListener('keydown', e => {
