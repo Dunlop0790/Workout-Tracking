@@ -27,8 +27,8 @@
   </div>
 
   <!-- Header -->
-  <header>
-    <div class="header-top">
+  <aside id="sidenav">
+    <div class="brand-row">
       <div>
         <h1>Workout Club</h1>
         <p class="week-label" id="weekLabel"></p>
@@ -42,7 +42,9 @@
       <button class="tab-btn" data-tab="nutrition">Nutrition</button>
       <button class="tab-btn" data-tab="trash">Trash Talk</button>
     </nav>
-  </header>
+  </aside>
+
+  <main id="content">
 
   <div id="news-ticker" class="news-ticker" style="display:none"></div>
 
@@ -64,17 +66,23 @@
 
   <!-- Leaderboard -->
   <section class="panel" id="panel-leaderboard">
-    <div class="period-tabs" id="periodTabs">
-      <button class="period-btn active" data-period="week">This week</button>
-      <button class="period-btn" data-period="month">This month</button>
-      <button class="period-btn" data-period="6mo">6 months</button>
-      <button class="period-btn" data-period="12mo">12 months</button>
+    <div class="split-layout">
+      <div class="split-main">
+        <div class="period-tabs" id="periodTabs">
+          <button class="period-btn active" data-period="week">This week</button>
+          <button class="period-btn" data-period="month">This month</button>
+          <button class="period-btn" data-period="6mo">6 months</button>
+          <button class="period-btn" data-period="12mo">12 months</button>
+        </div>
+        <div id="leaderboard-list"></div>
+      </div>
+      <aside class="split-side">
+        <div class="section-header">Head to Head</div>
+        <div id="head-to-head"></div>
+        <div class="section-header">Hall of Fame</div>
+        <div id="hall-of-fame"></div>
+      </aside>
     </div>
-    <div id="leaderboard-list"></div>
-    <div class="section-header">Head to Head</div>
-    <div id="head-to-head"></div>
-    <div class="section-header">Hall of Fame</div>
-    <div id="hall-of-fame"></div>
   </section>
 
   <!-- Strength -->
@@ -109,6 +117,8 @@
     <div id="trash-compose"></div>
     <div id="trash-feed"></div>
   </section>
+
+  </main>
 
 </div>
 

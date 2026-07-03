@@ -6,7 +6,7 @@
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   document.getElementById('setup-screen').style.display = 'block';
-  document.querySelector('header').style.display = 'none';
+  document.getElementById('sidenav').style.display = 'none';
   document.getElementById('panel-tracker').style.display = 'none';
   document.getElementById('panel-leaderboard').style.display = 'none';
   throw new Error('Supabase not configured.');

@@ -38,20 +38,17 @@ body {
   margin: 0 auto;
   padding: 0 0 80px;
 }
+#content { min-width: 0; }
 
 /* =========================
-   Header
+   Side nav (top bar on mobile, left rail on desktop)
    ========================= */
-header {
-  /* Full bleed: escape the centered #root so the title sits at the
-     viewport's far left and the team stat at its far right. */
-  margin-left: calc(50% - 50vw);
-  margin-right: calc(50% - 50vw);
-  padding: 16px 24px 0;
+#sidenav {
+  padding: 16px 16px 0;
   margin-bottom: 14px;
 }
 
-.header-top {
+.brand-row {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1247,9 +1244,7 @@ h1 {
   to   { transform: translateX(-100%); }
 }
 
-@media (min-width: 920px) {
-  .news-ticker { max-width: 888px; margin-left: auto; margin-right: auto; }
-}
+
 
 .food-row {
   display: flex;
@@ -1394,17 +1389,86 @@ h1 {
    A third column for charts can slot into this grid later.
    ========================= */
 @media (min-width: 920px) {
-  #root  { max-width: 920px; }
-  .panel { max-width: 572px; margin-left: auto; margin-right: auto; }
-  #panel-tracker, #panel-nutrition { max-width: 920px; }
+  #root {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: flex-start;
+  }
+
+  #sidenav {
+    flex: 0 0 216px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    padding: 26px 20px;
+    margin-bottom: 0;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+  }
+  .brand-row { display: block; margin-bottom: 24px; }
+  .brand-row .team-stat { margin-top: 20px; text-align: left; }
+
+  .tabs {
+    flex-direction: column;
+    gap: 2px;
+    border-bottom: none;
+    overflow: visible;
+  }
+  .tab-btn {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: none;
+    border-left: 2px solid transparent;
+    margin-bottom: 0;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  }
+  .tab-btn.active {
+    border-bottom: none;
+    border-left-color: var(--text);
+    background: var(--surface-2);
+  }
+
+  #content {
+    flex: 1;
+    max-width: 1240px;
+    padding: 22px 32px 80px;
+  }
+  .news-ticker { margin: 0 0 18px; }
+
+  .panel { padding: 0; max-width: 640px; margin: 0 auto; }
+  #panel-tracker, #panel-leaderboard, #panel-nutrition, #panel-strength {
+    max-width: none;
+    margin: 0;
+  }
+
   .split-layout {
     display: grid;
-    grid-template-columns: minmax(0, 540px) 320px;
-    gap: 24px;
-    justify-content: start;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 28px;
     align-items: start;
   }
   .split-side { margin-top: 0; }
+}
+
+/* Wide desktop: two-column card grids */
+@media (min-width: 1150px) {
+  #member-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  #member-list .member-row { margin-bottom: 0; }
+
+  #strength-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    align-items: start;
+  }
+  #strength-list .lift-card { margin-bottom: 0; }
 }
 
 .credit {
