@@ -1311,6 +1311,14 @@ h1 {
   color: var(--text-2);
   border-bottom: 1px solid var(--border);
 }
+.serving-label {
+  font-size: 11px;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-top: 12px;
+}
+.goals-form-row .serving-unit { flex: 0 0 84px; }
 
 /* =========================
    Desktop layout

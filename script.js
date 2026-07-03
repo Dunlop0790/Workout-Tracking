@@ -1082,9 +1082,13 @@ function dbFoodFormHTML() {
       <input type="number" inputmode="decimal" id="dbFat"  class="lift-input" placeholder="Fat g" value="${f.fat}"/>
     </div>
     ${editing ? servingListHTML(editing.id) : ''}
+    <div class="serving-label">Serving size${editing ? ' (add another)' : ''}</div>
     <div class="goals-form-row">
-      <input id="dbServLabel" class="add-input" placeholder="Serving name (e.g. 1 egg)"/>
-      <input type="number" inputmode="decimal" id="dbServGrams" class="lift-input" placeholder="Grams"/>
+      <input id="dbServLabel" class="add-input" placeholder="One serving is... (e.g. 1 egg)"/>
+      <input type="number" inputmode="decimal" id="dbServAmt" class="lift-input" placeholder="Weight"/>
+      <select id="dbServUnit" class="strength-picker serving-unit">
+        ${MASS_UNITS.map(u => `<option value="${u.key}">${u.label}</option>`).join('')}
+      </select>
     </div>
     <div class="form-error" id="dbError"></div>
     <div class="goals-form-row">
@@ -1309,9 +1313,13 @@ function foodFormHTML() {
         <input type="number" inputmode="decimal" id="nfFat"  class="lift-input" placeholder="Fat g" value="${f.fat}"/>
       </div>
       ${editing ? servingListHTML(editing.id) : ''}
+      <div class="serving-label">Serving size${editing ? ' (add another)' : ''}</div>
       <div class="goals-form-row">
-        <input id="nfServLabel" class="add-input" placeholder="Serving name (e.g. 1 slice)"/>
-        <input type="number" inputmode="decimal" id="nfServGrams" class="lift-input" placeholder="Grams"/>
+        <input id="nfServLabel" class="add-input" placeholder="One serving is... (e.g. 1 egg)"/>
+        <input type="number" inputmode="decimal" id="nfServAmt" class="lift-input" placeholder="Weight"/>
+        <select id="nfServUnit" class="strength-picker serving-unit">
+          ${MASS_UNITS.map(u => `<option value="${u.key}">${u.label}</option>`).join('')}
+        </select>
       </div>
       <div class="form-error" id="nfError"></div>
       <div class="goals-form-row">
@@ -1348,7 +1356,9 @@ async function saveFood() {
 
   const icon = document.getElementById('nfIcon')?.value || null;
   const servLabel = document.getElementById('nfServLabel')?.value.trim();
-  const servGrams = parseFloat(document.getElementById('nfServGrams')?.value);
+  const servAmt   = parseFloat(document.getElementById('nfServAmt')?.value);
+  const servUnit  = MASS_UNITS.find(u => u.key === document.getElementById('nfServUnit')?.value);
+  const servGrams = servAmt > 0 && servUnit ? servAmt * servUnit.grams : null;
 
   if (foodFormMode === 'edit') {
     const id = editingFoodId;
@@ -1356,9 +1366,14 @@ async function saveFood() {
     editingFoodId = null;
     renderNutritionBody();
     await db.from('foods').update({ name, brand, calories: cal, protein: pro, carbs: carb, fat, icon }).eq('id', id);
-    if (servLabel && servGrams > 0) {
+    if (servLabel && servGrams) {
       await db.from('food_servings').insert({ id: 's' + Date.now(), food_id: id, label: servLabel, grams: servGrams });
     }
+    return;
+  }
+
+  if (!servLabel || !servGrams) {
+    showFormError('nfError', 'Define the serving size, e.g. 1 egg weighing 50 g.');
     return;
   }
 
@@ -1368,9 +1383,7 @@ async function saveFood() {
   renderNutritionBody();
 
   await db.from('foods').insert({ id, name, brand, calories: cal, protein: pro, carbs: carb, fat, icon });
-  if (servLabel && servGrams > 0) {
-    await db.from('food_servings').insert({ id: 's' + Date.now(), food_id: id, label: servLabel, grams: servGrams });
-  }
+  await db.from('food_servings').insert({ id: 's' + Date.now(), food_id: id, label: servLabel, grams: servGrams });
 }
 
 async function logFood() {
@@ -1585,7 +1598,9 @@ async function saveDbFood() {
 
   const icon = document.getElementById('dbIcon')?.value || null;
   const servLabel = document.getElementById('dbServLabel')?.value.trim();
-  const servGrams = parseFloat(document.getElementById('dbServGrams')?.value);
+  const servAmt   = parseFloat(document.getElementById('dbServAmt')?.value);
+  const servUnit  = MASS_UNITS.find(u => u.key === document.getElementById('dbServUnit')?.value);
+  const servGrams = servAmt > 0 && servUnit ? servAmt * servUnit.grams : null;
 
   if (dbFormMode === 'edit') {
     const id = dbEditingId;
@@ -1593,9 +1608,14 @@ async function saveDbFood() {
     dbEditingId = null;
     renderFoodDb();
     await db.from('foods').update({ name, brand, calories: cal, protein: pro, carbs: carb, fat, icon }).eq('id', id);
-    if (servLabel && servGrams > 0) {
+    if (servLabel && servGrams) {
       await db.from('food_servings').insert({ id: 's' + Date.now(), food_id: id, label: servLabel, grams: servGrams });
     }
+    return;
+  }
+
+  if (!servLabel || !servGrams) {
+    showFormError('dbError', 'Define the serving size, e.g. 1 egg weighing 50 g.');
     return;
   }
 
@@ -1604,9 +1624,7 @@ async function saveDbFood() {
   renderFoodDb();
 
   await db.from('foods').insert({ id, name, brand, calories: cal, protein: pro, carbs: carb, fat, icon });
-  if (servLabel && servGrams > 0) {
-    await db.from('food_servings').insert({ id: 's' + Date.now(), food_id: id, label: servLabel, grams: servGrams });
-  }
+  await db.from('food_servings').insert({ id: 's' + Date.now(), food_id: id, label: servLabel, grams: servGrams });
 }
 
 async function deleteServing(servingId) {
