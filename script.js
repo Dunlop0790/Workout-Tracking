@@ -36,6 +36,55 @@ const MEALS = [
   { key: 'snacks',    label: 'Snacks' },
 ];
 
+const MASS_UNITS = [
+  { key: 'g',  label: 'grams',  grams: 1 },
+  { key: 'oz', label: 'oz',     grams: 28.3495 },
+  { key: 'lb', label: 'lb',     grams: 453.592 },
+];
+
+const FOOD_ICONS = [
+  { key: 'drink',    label: 'Drink',     svg: '<path d="M7 8h10l-1.2 12H8.2L7 8z"/><path d="M12 8l3.5-5.5"/>' },
+  { key: 'meat',     label: 'Meat',      svg: '<path d="M15.5 3.5a5 5 0 0 1 3.5 8.6c-1.6 1.6-4 1.9-5.6 1.2L10 16.7a2 2 0 1 1-2.7-2.7l3.4-3.4c-.7-1.6-.4-4 1.2-5.6a5 5 0 0 1 3.6-1.6z"/>' },
+  { key: 'produce',  label: 'Produce',   svg: '<path d="M12 7c-3-2-7 0-7 5 0 4 3 8 5 8 1 0 1.5-.6 2-.6s1 .6 2 .6c2 0 5-4 5-8 0-5-4-7-7-5z"/><path d="M12 7c0-2 1-4 3-4"/>' },
+  { key: 'bread',    label: 'Bread',     svg: '<path d="M6 10c0-3 2.5-5 6-5s6 2 6 5c0 1.5-1 2.5-2 3v6H8v-6c-1-.5-2-1.5-2-3z"/>' },
+  { key: 'dairy',    label: 'Dairy',     svg: '<path d="M9 3h6v3l2 4v11H7V10l2-4V3z"/><path d="M9 6h6"/>' },
+  { key: 'sweets',   label: 'Sweets',    svg: '<path d="M8 11h8l-4 10-4-10z"/><path d="M8 11a4 4 0 1 1 8 0"/>' },
+  { key: 'fastfood', label: 'Fast food', svg: '<path d="M6 11c0-4 2.5-6 6-6s6 2 6 6"/><path d="M5 11h14"/><path d="M5 15h14"/><path d="M6 15c0 3 2 4 6 4s6-1 6-4"/>' },
+  { key: 'other',    label: 'Other',     svg: '<path d="M4 12h16a8 8 0 0 1-16 0z"/><path d="M4 12h16"/>' },
+];
+
+function iconSvg(key) {
+  const icon = FOOD_ICONS.find(i => i.key === key);
+  if (!icon) return '';
+  return `<span class="food-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${icon.svg}</svg></span>`;
+}
+
+function iconPickerHTML(inputId, selected) {
+  return `
+    <input type="hidden" id="${inputId}" value="${selected || ''}"/>
+    <div class="icon-row" data-icon-input="${inputId}">
+      ${FOOD_ICONS.map(i => `
+        <button type="button" class="icon-btn${selected === i.key ? ' selected' : ''}"
+          data-action="pick-food-icon" data-icon-key="${i.key}" title="${i.label}"
+          aria-label="${i.label}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${i.svg}</svg>
+        </button>`).join('')}
+    </div>`;
+}
+
+function servingListHTML(foodId) {
+  const servings = foodServings.filter(s => s.food_id === foodId);
+  if (servings.length === 0) return '';
+  return `
+    <div class="serving-list">
+      ${servings.map(s => `
+        <div class="serving-row">
+          <span>${esc(s.label)} (${s.grams}g)</span>
+          <button class="comment-del" data-action="del-serving" data-serving-id="${s.id}" aria-label="Delete serving">&#215;</button>
+        </div>`).join('')}
+    </div>`;
+}
+
 // ─────────────────────────────────────────────
 // Date helpers
 // ─────────────────────────────────────────────
@@ -997,7 +1046,7 @@ function dbFoodListHTML() {
   const shown = matches.slice(0, 12);
   return shown.map(f => `
     <button class="food-result" data-action="db-edit-food" data-food-id="${f.id}">
-      <span class="food-result-name">${esc(f.name)}${f.brand ? ` <span class="food-row-brand">${esc(f.brand)}</span>` : ''}</span>
+      <span class="food-result-name">${iconSvg(f.icon)}${esc(f.name)}${f.brand ? ` <span class="food-row-brand">${esc(f.brand)}</span>` : ''}</span>
       <span class="food-row-stats">${Math.round(f.calories)} cal / 100g</span>
     </button>`).join('') +
     (matches.length > shown.length ? `<p class="db-more">${matches.length - shown.length} more, refine your search</p>` : '');
@@ -1010,7 +1059,7 @@ function renderDbFoodList() {
 
 function dbFoodFormHTML() {
   const editing = dbFormMode === 'edit' ? foodById(dbEditingId) : null;
-  const f = editing || { name: '', brand: '', calories: '', protein: '', carbs: '', fat: '' };
+  const f = editing || { name: '', brand: '', calories: '', protein: '', carbs: '', fat: '', icon: '' };
 
   return `
     <div class="log-food-header">
@@ -1023,6 +1072,7 @@ function dbFoodFormHTML() {
     <div class="goals-form-row">
       <input id="dbBrand" class="add-input" placeholder="Brand (optional)" value="${esc(f.brand || '')}"/>
     </div>
+    ${iconPickerHTML('dbIcon', f.icon)}
     <div class="goals-form-row">
       <input type="number" inputmode="decimal" id="dbCal" class="lift-input" placeholder="Calories" value="${f.calories}"/>
       <input type="number" inputmode="decimal" id="dbPro" class="lift-input" placeholder="Protein g" value="${f.protein}"/>
@@ -1031,11 +1081,11 @@ function dbFoodFormHTML() {
       <input type="number" inputmode="decimal" id="dbCarb" class="lift-input" placeholder="Carbs g" value="${f.carbs}"/>
       <input type="number" inputmode="decimal" id="dbFat"  class="lift-input" placeholder="Fat g" value="${f.fat}"/>
     </div>
-    ${!editing ? `
+    ${editing ? servingListHTML(editing.id) : ''}
     <div class="goals-form-row">
-      <input id="dbServLabel" class="add-input" placeholder="Serving name (optional)"/>
+      <input id="dbServLabel" class="add-input" placeholder="Serving name (e.g. 1 egg)"/>
       <input type="number" inputmode="decimal" id="dbServGrams" class="lift-input" placeholder="Grams"/>
-    </div>` : ''}
+    </div>
     <div class="form-error" id="dbError"></div>
     <div class="goals-form-row">
       <button class="lift-save" data-action="db-save-food">${editing ? 'Save' : 'Add food'}</button>
@@ -1152,7 +1202,7 @@ function mealCardHTML(meal, entries) {
     return `
       <div class="food-row">
         <div class="food-row-name">
-          ${esc(food.name)}${food.brand ? ` <span class="food-row-brand">${esc(food.brand)}</span>` : ''}
+          ${iconSvg(food.icon)}${esc(food.name)}${food.brand ? ` <span class="food-row-brand">${esc(food.brand)}</span>` : ''}
           <div class="food-row-detail">${Math.round(e.grams)} g</div>
         </div>
         <span class="food-row-stats">${Math.round(m.cal)} cal · P ${Math.round(m.pro)} · C ${Math.round(m.carb)} · F ${Math.round(m.fat)}</span>
@@ -1198,7 +1248,7 @@ function foodSearchResultsHTML() {
   if (matches.length === 0) return `<p class="empty-msg food-empty">No matches. Add it as a new food.</p>`;
   return matches.slice(0, 8).map(f => `
     <button class="food-result" data-action="nut-pick-food" data-food-id="${f.id}">
-      <span class="food-result-name">${esc(f.name)}${f.brand ? ` <span class="food-row-brand">${esc(f.brand)}</span>` : ''}</span>
+      <span class="food-result-name">${iconSvg(f.icon)}${esc(f.name)}${f.brand ? ` <span class="food-row-brand">${esc(f.brand)}</span>` : ''}</span>
       <span class="food-row-stats">${Math.round(f.calories)} cal / 100g</span>
     </button>`).join('');
 }
@@ -1216,14 +1266,14 @@ function logFormHTML() {
   return `
     <div class="food-add-panel">
       <div class="log-food-header">
-        <div class="food-result-name">${esc(food.name)}${food.brand ? ` <span class="food-row-brand">${esc(food.brand)}</span>` : ''}</div>
+        <div class="food-result-name">${iconSvg(food.icon)}${esc(food.name)}${food.brand ? ` <span class="food-row-brand">${esc(food.brand)}</span>` : ''}</div>
         <div class="food-row-stats">Per 100g: ${Math.round(food.calories)} cal · P ${Math.round(food.protein)} · C ${Math.round(food.carbs)} · F ${Math.round(food.fat)}</div>
       </div>
       <div class="goals-form-row">
-        <input type="number" inputmode="decimal" id="logQty" class="lift-input" placeholder="Amount"/>
+        <input type="number" inputmode="decimal" id="logQty" class="lift-input" placeholder="Amount" value="${servings.length > 0 ? '1' : ''}"/>
         <select id="logUnit" class="strength-picker">
-          <option value="g">grams</option>
-          ${servings.map(s => `<option value="${s.id}">${esc(s.label)} (${s.grams}g)</option>`).join('')}
+          ${servings.map((sv, i) => `<option value="${sv.id}" ${i === 0 ? 'selected' : ''}>${esc(sv.label)} (${sv.grams}g)</option>`).join('')}
+          ${MASS_UNITS.map(u => `<option value="${u.key}">${u.label}</option>`).join('')}
         </select>
       </div>
       <div class="form-error" id="logError"></div>
@@ -1237,7 +1287,7 @@ function logFormHTML() {
 
 function foodFormHTML() {
   const editing = foodFormMode === 'edit' ? foodById(editingFoodId) : null;
-  const f = editing || { name: '', brand: '', calories: '', protein: '', carbs: '', fat: '' };
+  const f = editing || { name: '', brand: '', calories: '', protein: '', carbs: '', fat: '', icon: '' };
 
   return `
     <div class="food-add-panel">
@@ -1249,6 +1299,7 @@ function foodFormHTML() {
         <input id="nfName"  class="add-input" placeholder="Name" value="${esc(f.name)}"/>
         <input id="nfBrand" class="add-input" placeholder="Brand (optional)" value="${esc(f.brand || '')}"/>
       </div>
+      ${iconPickerHTML('nfIcon', f.icon)}
       <div class="goals-form-row">
         <input type="number" inputmode="decimal" id="nfCal" class="lift-input" placeholder="Calories" value="${f.calories}"/>
         <input type="number" inputmode="decimal" id="nfPro" class="lift-input" placeholder="Protein g" value="${f.protein}"/>
@@ -1257,11 +1308,11 @@ function foodFormHTML() {
         <input type="number" inputmode="decimal" id="nfCarb" class="lift-input" placeholder="Carbs g" value="${f.carbs}"/>
         <input type="number" inputmode="decimal" id="nfFat"  class="lift-input" placeholder="Fat g" value="${f.fat}"/>
       </div>
-      ${!editing ? `
+      ${editing ? servingListHTML(editing.id) : ''}
       <div class="goals-form-row">
-        <input id="nfServLabel" class="add-input" placeholder="Serving name (optional, e.g. 1 slice)"/>
-        <input type="number" inputmode="decimal" id="nfServGrams" class="lift-input" placeholder="Serving grams"/>
-      </div>` : ''}
+        <input id="nfServLabel" class="add-input" placeholder="Serving name (e.g. 1 slice)"/>
+        <input type="number" inputmode="decimal" id="nfServGrams" class="lift-input" placeholder="Grams"/>
+      </div>
       <div class="form-error" id="nfError"></div>
       <div class="goals-form-row">
         <button class="lift-save" data-action="nut-save-food">${editing ? 'Save changes' : 'Add food'}</button>
@@ -1295,24 +1346,28 @@ async function saveFood() {
     return;
   }
 
+  const icon = document.getElementById('nfIcon')?.value || null;
+  const servLabel = document.getElementById('nfServLabel')?.value.trim();
+  const servGrams = parseFloat(document.getElementById('nfServGrams')?.value);
+
   if (foodFormMode === 'edit') {
     const id = editingFoodId;
     foodFormMode = null;
     editingFoodId = null;
     renderNutritionBody();
-    await db.from('foods').update({ name, brand, calories: cal, protein: pro, carbs: carb, fat }).eq('id', id);
+    await db.from('foods').update({ name, brand, calories: cal, protein: pro, carbs: carb, fat, icon }).eq('id', id);
+    if (servLabel && servGrams > 0) {
+      await db.from('food_servings').insert({ id: 's' + Date.now(), food_id: id, label: servLabel, grams: servGrams });
+    }
     return;
   }
 
   const id = 'f' + Date.now();
-  const servLabel = document.getElementById('nfServLabel')?.value.trim();
-  const servGrams = parseFloat(document.getElementById('nfServGrams')?.value);
-
   foodFormMode = null;
   pendingLogFoodId = id;
   renderNutritionBody();
 
-  await db.from('foods').insert({ id, name, brand, calories: cal, protein: pro, carbs: carb, fat });
+  await db.from('foods').insert({ id, name, brand, calories: cal, protein: pro, carbs: carb, fat, icon });
   if (servLabel && servGrams > 0) {
     await db.from('food_servings').insert({ id: 's' + Date.now(), food_id: id, label: servLabel, grams: servGrams });
   }
@@ -1328,8 +1383,9 @@ async function logFood() {
   if (!pendingLogFoodId || !addFoodMeal || !nutMember) return;
 
   let grams;
-  if (unit === 'g') {
-    grams = qty;
+  const massUnit = MASS_UNITS.find(u => u.key === unit);
+  if (massUnit) {
+    grams = qty * massUnit.grams;
   } else {
     const serving = foodServings.find(s => s.id === unit);
     if (!serving) return;
@@ -1527,26 +1583,34 @@ async function saveDbFood() {
     return;
   }
 
+  const icon = document.getElementById('dbIcon')?.value || null;
+  const servLabel = document.getElementById('dbServLabel')?.value.trim();
+  const servGrams = parseFloat(document.getElementById('dbServGrams')?.value);
+
   if (dbFormMode === 'edit') {
     const id = dbEditingId;
     dbFormMode = null;
     dbEditingId = null;
     renderFoodDb();
-    await db.from('foods').update({ name, brand, calories: cal, protein: pro, carbs: carb, fat }).eq('id', id);
+    await db.from('foods').update({ name, brand, calories: cal, protein: pro, carbs: carb, fat, icon }).eq('id', id);
+    if (servLabel && servGrams > 0) {
+      await db.from('food_servings').insert({ id: 's' + Date.now(), food_id: id, label: servLabel, grams: servGrams });
+    }
     return;
   }
 
   const id = 'f' + Date.now();
-  const servLabel = document.getElementById('dbServLabel')?.value.trim();
-  const servGrams = parseFloat(document.getElementById('dbServGrams')?.value);
-
   dbFormMode = null;
   renderFoodDb();
 
-  await db.from('foods').insert({ id, name, brand, calories: cal, protein: pro, carbs: carb, fat });
+  await db.from('foods').insert({ id, name, brand, calories: cal, protein: pro, carbs: carb, fat, icon });
   if (servLabel && servGrams > 0) {
     await db.from('food_servings').insert({ id: 's' + Date.now(), food_id: id, label: servLabel, grams: servGrams });
   }
+}
+
+async function deleteServing(servingId) {
+  await db.from('food_servings').delete().eq('id', servingId);
 }
 
 async function deleteDbFood(foodId) {
@@ -1642,6 +1706,16 @@ document.addEventListener('click', e => {
   if (action === 'nut-run-goal-calc')   runGoalCalc();
   if (action === 'nut-apply-goal-calc') applyGoalCalc();
   if (action === 'nut-calc-cancel')     { goalCalcOpen = false; goalCalcResult = null; renderNutritionBody(); }
+
+  if (action === 'pick-food-icon') {
+    const row = btn.closest('.icon-row');
+    const input = document.getElementById(row.dataset.iconInput);
+    const already = input.value === btn.dataset.iconKey;
+    input.value = already ? '' : btn.dataset.iconKey;
+    row.querySelectorAll('.icon-btn').forEach(b => b.classList.remove('selected'));
+    if (!already) btn.classList.add('selected');
+  }
+  if (action === 'del-serving')         { btn.closest('.serving-row').remove(); deleteServing(btn.dataset.servingId); }
 
   if (action === 'db-new-food')         { dbFormMode = 'create'; dbEditingId = null; renderFoodDb(); }
   if (action === 'db-edit-food')        { dbFormMode = 'edit'; dbEditingId = foodId; renderFoodDb(); }

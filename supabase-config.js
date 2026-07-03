@@ -128,4 +128,7 @@ alter publication supabase_realtime add table food_servings;
 alter publication supabase_realtime add table food_log;
 alter publication supabase_realtime add table macro_goals;
 
+-- Food icons (category icon key shown next to food names)
+alter table foods add column if not exists icon text;
+
 */
