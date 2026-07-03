@@ -48,11 +48,18 @@
 
   <!-- Tracker -->
   <section class="panel active" id="panel-tracker">
-    <div id="mvp-banner"></div>
-    <div id="recap-section"></div>
-    <div id="nudge-banner"></div>
-    <div id="member-list"></div>
-    <div id="add-area"></div>
+    <div class="split-layout">
+      <div class="split-main">
+        <div id="member-list"></div>
+        <div id="add-area"></div>
+      </div>
+      <aside class="split-side">
+        <div class="section-header">This Week</div>
+        <div id="mvp-banner"></div>
+        <div id="recap-section"></div>
+        <div id="nudge-banner"></div>
+      </aside>
+    </div>
   </section>
 
   <!-- Leaderboard -->
@@ -82,15 +89,15 @@
 
   <!-- Nutrition -->
   <section class="panel" id="panel-nutrition">
-    <div class="nutrition-layout">
-      <div class="nutrition-main">
+    <div class="split-layout">
+      <div class="split-main">
         <div class="strength-picker-row">
           <label for="nutritionPicker" class="strength-picker-label">Viewing</label>
           <select id="nutritionPicker" class="strength-picker"></select>
         </div>
         <div id="nutrition-body"></div>
       </div>
-      <aside class="nutrition-side">
+      <aside class="split-side">
         <div class="section-header">Food Database</div>
         <div id="food-db"></div>
       </aside>

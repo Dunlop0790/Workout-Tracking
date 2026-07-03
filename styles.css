@@ -1243,7 +1243,7 @@ h1 {
 }
 
 @media (min-width: 920px) {
-  .news-ticker { max-width: 540px; margin-left: auto; margin-right: auto; }
+  .news-ticker { max-width: 888px; margin-left: auto; margin-right: auto; }
 }
 
 .food-row {
@@ -1298,7 +1298,7 @@ h1 {
 /* =========================
    Food database side panel
    ========================= */
-.nutrition-side { margin-top: 20px; }
+.split-side { margin-top: 20px; }
 .db-search { width: 100%; margin-bottom: 6px; }
 .db-more { font-size: 11px; color: var(--text-3); padding: 8px 4px 0; }
 #food-db .add-trigger { margin-top: 8px; }
@@ -1390,17 +1390,17 @@ h1 {
    ========================= */
 @media (min-width: 920px) {
   #root  { max-width: 920px; }
-  header { max-width: 572px; margin-left: auto; margin-right: auto; }
-  .panel { max-width: 572px; margin-left: auto; margin-right: auto; }
-  #panel-nutrition { max-width: 920px; }
-  .nutrition-layout {
+  header { max-width: 920px; margin-left: auto; margin-right: auto; }
+  .panel { max-width: 572px; margin-left: 0; margin-right: auto; }
+  #panel-tracker, #panel-nutrition { max-width: 920px; }
+  .split-layout {
     display: grid;
     grid-template-columns: minmax(0, 540px) 320px;
     gap: 24px;
-    justify-content: center;
+    justify-content: start;
     align-items: start;
   }
-  .nutrition-side { margin-top: 0; }
+  .split-side { margin-top: 0; }
 }
 
 .credit {
