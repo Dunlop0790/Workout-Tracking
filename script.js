@@ -231,6 +231,7 @@ let dbFormMode            = null;
 let dbEditingId           = null;
 let goalCalcOpen          = false;
 let goalCalcResult        = null;
+let news                  = [];
 
 // ─────────────────────────────────────────────
 // Data
@@ -238,7 +239,7 @@ let goalCalcResult        = null;
 
 async function loadData() {
   const [{ data: m }, { data: w }, { data: l }, { data: le }, { data: c },
-         { data: f }, { data: fs }, { data: fl }, { data: mg }] = await Promise.all([
+         { data: f }, { data: fs }, { data: fl }, { data: mg }, { data: nw }] = await Promise.all([
     db.from('members').select('*').order('name'),
     db.from('workouts').select('*'),
     db.from('lifts').select('*'),
@@ -248,6 +249,7 @@ async function loadData() {
     db.from('food_servings').select('*'),
     db.from('food_log').select('*'),
     db.from('macro_goals').select('*'),
+    db.from('news').select('*').order('ts', { ascending: false }),
   ]);
   members      = m  || [];
   workouts     = w  || [];
@@ -258,6 +260,7 @@ async function loadData() {
   foodServings = fs || [];
   foodLog      = fl || [];
   macroGoals   = mg || [];
+  news         = nw || [];
 
   // Pickers start empty. Only reset a selection if that member no longer exists.
   const exists = id => members.some(x => x.id === id);
@@ -280,6 +283,7 @@ db.channel('db-changes')
   .on('postgres_changes', { event: '*', schema: 'public', table: 'food_servings' },() => loadData())
   .on('postgres_changes', { event: '*', schema: 'public', table: 'food_log' },     () => loadData())
   .on('postgres_changes', { event: '*', schema: 'public', table: 'macro_goals' },  () => loadData())
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'news' },         () => loadData())
   .subscribe();
 
 // ─────────────────────────────────────────────
@@ -288,6 +292,7 @@ db.channel('db-changes')
 
 function render() {
   renderHeader();
+  renderNewsTicker();
   renderTracker();
   renderLeaderboard();
   renderHallOfFame();
@@ -312,6 +317,23 @@ function renderHeader() {
   if (total === 0) { stat.innerHTML = ''; return; }
   stat.className = 'team-stat' + (hitGoal === total ? ' all-done' : '');
   stat.innerHTML = `<div class="stat-num">${hitGoal}/${total}</div><div class="stat-label">hit goal this week</div>`;
+}
+
+// ─────────────────────────────────────────────
+// Render: News ticker
+// News is posted only through the Supabase SQL Editor. The table's row
+// level security allows select only, so the site can read but not write.
+// ─────────────────────────────────────────────
+
+function renderNewsTicker() {
+  const el = document.getElementById('news-ticker');
+  if (!el) return;
+  if (news.length === 0) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  const text = news.map(n => esc(n.content)).join(' +++ ');
+  el.innerHTML = `<div class="news-ticker-inner">${text}</div>`;
+  // Constant scroll speed regardless of message length
+  el.firstElementChild.style.animationDuration = Math.max(14, text.length * 0.3) + 's';
 }
 
 // ─────────────────────────────────────────────

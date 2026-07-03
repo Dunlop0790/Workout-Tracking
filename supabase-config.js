@@ -146,4 +146,22 @@ alter table food_log drop column if exists meal;
 -- Per-member diary day start (night shift support)
 alter table members add column if not exists day_start text not null default '00:00';
 
+-- News ticker. Select-only RLS: the site can read, nobody can write
+-- through the app. Post and delete through this SQL Editor only.
+create table if not exists news (
+  id      bigserial primary key,
+  content text not null,
+  ts      bigint not null
+);
+alter table news enable row level security;
+create policy "Read only" on news for select using (true);
+alter publication supabase_realtime add table news;
+
+-- To post news:
+--   insert into news (content, ts)
+--   values ('New: Nutrition tab is live', (extract(epoch from now()) * 1000)::bigint);
+-- To list and remove old posts:
+--   select id, content from news order by ts desc;
+--   delete from news where id = 1;
+
 */
