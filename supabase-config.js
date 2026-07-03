@@ -78,4 +78,54 @@ alter table comments enable row level security;
 create policy "Allow all" on comments for all using (true) with check (true);
 alter publication supabase_realtime add table comments;
 
+-- Nutrition tracking (foods store macros per 100g)
+create table if not exists foods (
+  id       text primary key,
+  name     text not null,
+  brand    text,
+  calories numeric not null,
+  protein  numeric not null,
+  carbs    numeric not null,
+  fat      numeric not null
+);
+
+create table if not exists food_servings (
+  id      text primary key,
+  food_id text not null references foods(id) on delete cascade,
+  label   text not null,
+  grams   numeric not null
+);
+
+create table if not exists food_log (
+  id        bigserial primary key,
+  member_id text not null references members(id) on delete cascade,
+  log_date  text not null,
+  meal      text not null,
+  food_id   text not null references foods(id) on delete restrict,
+  grams     numeric not null
+);
+
+create table if not exists macro_goals (
+  member_id text primary key references members(id) on delete cascade,
+  calories  numeric not null,
+  protein   numeric not null,
+  carbs     numeric not null,
+  fat       numeric not null
+);
+
+alter table foods         enable row level security;
+alter table food_servings enable row level security;
+alter table food_log      enable row level security;
+alter table macro_goals   enable row level security;
+
+create policy "Allow all" on foods         for all using (true) with check (true);
+create policy "Allow all" on food_servings for all using (true) with check (true);
+create policy "Allow all" on food_log      for all using (true) with check (true);
+create policy "Allow all" on macro_goals   for all using (true) with check (true);
+
+alter publication supabase_realtime add table foods;
+alter publication supabase_realtime add table food_servings;
+alter publication supabase_realtime add table food_log;
+alter publication supabase_realtime add table macro_goals;
+
 */

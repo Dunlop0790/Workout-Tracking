@@ -29,6 +29,13 @@ const WORKOUT_TYPES = [
   { key: 'other', label: '✨ Other',         color: '#64748b', emoji: '✨' },
 ];
 
+const MEALS = [
+  { key: 'breakfast', label: 'Breakfast' },
+  { key: 'lunch',     label: 'Lunch' },
+  { key: 'dinner',    label: 'Dinner' },
+  { key: 'snacks',    label: 'Snacks' },
+];
+
 // ─────────────────────────────────────────────
 // Date helpers
 // ─────────────────────────────────────────────
@@ -165,35 +172,53 @@ let recapExpanded         = false;
 let htMember1             = null;
 let htMember2             = null;
 let trashTalkPoster       = null;
+let foods                 = [];
+let foodServings          = [];
+let foodLog               = [];
+let macroGoals            = [];
+let nutMember             = null;
+let nutDate               = new Date().toISOString().split('T')[0];
+let addFoodMeal           = null;
+let pendingLogFoodId      = null;
+let foodFormMode          = null;
+let editingFoodId         = null;
+let editingGoals          = false;
+let foodSearchQuery       = '';
 
 // ─────────────────────────────────────────────
 // Data
 // ─────────────────────────────────────────────
 
 async function loadData() {
-  const [{ data: m }, { data: w }, { data: l }, { data: le }, { data: c }] = await Promise.all([
+  const [{ data: m }, { data: w }, { data: l }, { data: le }, { data: c },
+         { data: f }, { data: fs }, { data: fl }, { data: mg }] = await Promise.all([
     db.from('members').select('*').order('name'),
     db.from('workouts').select('*'),
     db.from('lifts').select('*'),
     db.from('lift_entries').select('*'),
     db.from('comments').select('*').order('ts', { ascending: false }),
+    db.from('foods').select('*').order('name'),
+    db.from('food_servings').select('*'),
+    db.from('food_log').select('*'),
+    db.from('macro_goals').select('*'),
   ]);
-  members     = m  || [];
-  workouts    = w  || [];
-  lifts       = l  || [];
-  liftEntries = le || [];
-  comments    = c  || [];
+  members      = m  || [];
+  workouts     = w  || [];
+  lifts        = l  || [];
+  liftEntries  = le || [];
+  comments     = c  || [];
+  foods        = f  || [];
+  foodServings = fs || [];
+  foodLog      = fl || [];
+  macroGoals   = mg || [];
 
-  if (!currentStrengthMember && members.length > 0) currentStrengthMember = members[0].id;
-  if (currentStrengthMember && !members.find(x => x.id === currentStrengthMember)) currentStrengthMember = members[0]?.id || null;
-
-  if (!htMember1 && members.length >= 1) htMember1 = members[0].id;
-  if (!htMember2 && members.length >= 2) htMember2 = members[1].id;
-  if (htMember1 && !members.find(x => x.id === htMember1)) htMember1 = members[0]?.id || null;
-  if (htMember2 && !members.find(x => x.id === htMember2)) htMember2 = members[1]?.id || members[0]?.id || null;
-
-  if (!trashTalkPoster && members.length > 0) trashTalkPoster = members[0].id;
-  if (trashTalkPoster && !members.find(x => x.id === trashTalkPoster)) trashTalkPoster = members[0]?.id || null;
+  // Pickers start empty. Only reset a selection if that member no longer exists.
+  const exists = id => members.some(x => x.id === id);
+  if (currentStrengthMember && !exists(currentStrengthMember)) currentStrengthMember = null;
+  if (htMember1 && !exists(htMember1)) htMember1 = null;
+  if (htMember2 && !exists(htMember2)) htMember2 = null;
+  if (trashTalkPoster && !exists(trashTalkPoster)) trashTalkPoster = null;
+  if (nutMember && !exists(nutMember)) nutMember = null;
 
   render();
 }
@@ -204,6 +229,10 @@ db.channel('db-changes')
   .on('postgres_changes', { event: '*', schema: 'public', table: 'lifts' },        () => loadData())
   .on('postgres_changes', { event: '*', schema: 'public', table: 'lift_entries' }, () => loadData())
   .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' },     () => loadData())
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'foods' },        () => loadData())
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'food_servings' },() => loadData())
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'food_log' },     () => loadData())
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'macro_goals' },  () => loadData())
   .subscribe();
 
 // ─────────────────────────────────────────────
@@ -217,6 +246,7 @@ function render() {
   renderHallOfFame();
   renderHeadToHead();
   renderStrength();
+  renderNutrition();
   renderTrashTalk();
 }
 
@@ -520,20 +550,22 @@ function renderHeadToHead() {
     return;
   }
 
+  const htOptions = sel => `<option value="" ${!sel ? 'selected' : ''}>Select member</option>` +
+    members.map(m => `<option value="${m.id}" ${m.id === sel ? 'selected' : ''}>${esc(m.name)}</option>`).join('');
+
   const pickerHtml = `
     <div class="ht-pickers">
-      <select class="ht-select" id="htPicker1">
-        ${members.map(m => `<option value="${m.id}" ${m.id === htMember1 ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
-      </select>
+      <select class="ht-select" id="htPicker1">${htOptions(htMember1)}</select>
       <span class="ht-vs">vs</span>
-      <select class="ht-select" id="htPicker2">
-        ${members.map(m => `<option value="${m.id}" ${m.id === htMember2 ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
-      </select>
+      <select class="ht-select" id="htPicker2">${htOptions(htMember2)}</select>
     </div>`;
 
   const m1 = members.find(m => m.id === htMember1);
   const m2 = members.find(m => m.id === htMember2);
-  if (!m1 || !m2) { el.innerHTML = pickerHtml; return; }
+  if (!m1 || !m2) {
+    el.innerHTML = pickerHtml + `<p class="empty-msg" style="padding:0.5rem 0 1rem">Pick two members to compare.</p>`;
+    return;
+  }
 
   const cw         = getMonday();
   const monthStart = rangeStart('month');
@@ -585,11 +617,14 @@ function renderTrashCompose() {
   if (!el) return;
   if (members.length === 0) { el.innerHTML = `<p class="empty-msg">Add members first.</p>`; return; }
 
+  const posterOptions = `<option value="" ${!trashTalkPoster ? 'selected' : ''}>Select member</option>` +
+    members.map(m => `<option value="${m.id}" ${m.id === trashTalkPoster ? 'selected' : ''}>${esc(m.name)}</option>`).join('');
+
   // Only update dropdown if textarea already exists (don't destroy what the user is typing)
   const existing = el.querySelector('#trashInput');
   if (existing) {
     const sel = el.querySelector('#trashPoster');
-    if (sel) sel.innerHTML = members.map(m => `<option value="${m.id}" ${m.id === trashTalkPoster ? 'selected' : ''}>${esc(m.name)}</option>`).join('');
+    if (sel) sel.innerHTML = posterOptions;
     return;
   }
 
@@ -597,9 +632,7 @@ function renderTrashCompose() {
     <div class="trash-compose-card">
       <div class="trash-as-row">
         <span class="trash-as-label">Posting as</span>
-        <select id="trashPoster" class="strength-picker">
-          ${members.map(m => `<option value="${m.id}" ${m.id === trashTalkPoster ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
-        </select>
+        <select id="trashPoster" class="strength-picker">${posterOptions}</select>
       </div>
       <textarea id="trashInput" class="trash-input" placeholder="Talk your trash… (Ctrl+Enter to post)" rows="2"></textarea>
       <button class="trash-post-btn" data-action="post-comment">Post</button>
@@ -646,15 +679,20 @@ function renderStrengthPicker() {
   if (!sel) return;
   if (members.length === 0) { sel.innerHTML = `<option>No members yet</option>`; sel.disabled = true; return; }
   sel.disabled = false;
-  sel.innerHTML = members.map(m =>
-    `<option value="${m.id}" ${m.id === currentStrengthMember ? 'selected' : ''}>${esc(m.name)}</option>`
-  ).join('');
+  sel.innerHTML = `<option value="" ${!currentStrengthMember ? 'selected' : ''}>Select member</option>` +
+    members.map(m =>
+      `<option value="${m.id}" ${m.id === currentStrengthMember ? 'selected' : ''}>${esc(m.name)}</option>`
+    ).join('');
 }
 
 function renderStrengthList() {
   const list = document.getElementById('strength-list');
-  if (!currentStrengthMember || members.length === 0) {
+  if (members.length === 0) {
     list.innerHTML = `<p class="empty-msg">No members yet.</p>`;
+    return;
+  }
+  if (!currentStrengthMember) {
+    list.innerHTML = `<p class="empty-msg">Pick a member to view their lifts.</p>`;
     return;
   }
   list.innerHTML = liftsForMember(currentStrengthMember).map(name => liftCardHTML(name, currentStrengthMember)).join('');
@@ -889,6 +927,341 @@ async function deleteComment(commentId) {
 }
 
 // ─────────────────────────────────────────────
+// Render: Nutrition
+// ─────────────────────────────────────────────
+
+function foodById(id) { return foods.find(f => f.id === id); }
+
+function macrosFor(food, grams) {
+  const k = grams / 100;
+  return {
+    cal:  food.calories * k,
+    pro:  food.protein  * k,
+    carb: food.carbs    * k,
+    fat:  food.fat      * k,
+  };
+}
+
+function shiftNutDate(days) {
+  const d = new Date(nutDate + 'T12:00:00');
+  d.setDate(d.getDate() + days);
+  nutDate = d.toISOString().split('T')[0];
+}
+
+function nutDateLabel() {
+  const today = new Date().toISOString().split('T')[0];
+  if (nutDate === today) return 'Today';
+  return new Date(nutDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function renderNutrition() {
+  renderNutritionPicker();
+  // Realtime refreshes must not destroy an open search or form mid-typing.
+  // Actions call renderNutritionBody() directly, bypassing this guard.
+  if (addFoodMeal || editingGoals) return;
+  renderNutritionBody();
+}
+
+function renderNutritionPicker() {
+  const sel = document.getElementById('nutritionPicker');
+  if (!sel) return;
+  if (members.length === 0) { sel.innerHTML = `<option>No members yet</option>`; sel.disabled = true; return; }
+  sel.disabled = false;
+  sel.innerHTML = `<option value="" ${!nutMember ? 'selected' : ''}>Select member</option>` +
+    members.map(m =>
+      `<option value="${m.id}" ${m.id === nutMember ? 'selected' : ''}>${esc(m.name)}</option>`
+    ).join('');
+}
+
+function renderNutritionBody() {
+  const body = document.getElementById('nutrition-body');
+  if (!body) return;
+  if (members.length === 0) { body.innerHTML = `<p class="empty-msg">No members yet.</p>`; return; }
+  if (!nutMember) { body.innerHTML = `<p class="empty-msg">Pick a member to view their food log.</p>`; return; }
+
+  const entries = foodLog.filter(e => e.member_id === nutMember && e.log_date === nutDate);
+  const goals   = macroGoals.find(g => g.member_id === nutMember);
+
+  const totals = entries.reduce((acc, e) => {
+    const food = foodById(e.food_id);
+    if (!food) return acc;
+    const m = macrosFor(food, e.grams);
+    acc.cal += m.cal; acc.pro += m.pro; acc.carb += m.carb; acc.fat += m.fat;
+    return acc;
+  }, { cal: 0, pro: 0, carb: 0, fat: 0 });
+
+  body.innerHTML = `
+    <div class="nut-daynav">
+      <button class="nut-daybtn" data-action="nut-prev-day">&#8249; Prev</button>
+      <span class="nut-daylabel">${nutDateLabel()}</span>
+      <button class="nut-daybtn" data-action="nut-next-day">Next &#8250;</button>
+    </div>
+    ${totalsCardHTML(totals, goals)}
+    ${MEALS.map(meal => mealCardHTML(meal, entries)).join('')}`;
+}
+
+function totalsCardHTML(totals, goals) {
+  const calLine = goals
+    ? `${Math.round(totals.cal)} <span class="nut-cal-goal">/ ${Math.round(goals.calories)} cal</span>`
+    : `${Math.round(totals.cal)} <span class="nut-cal-goal">cal</span>`;
+
+  const macroRow = (label, val, goal) => {
+    const pct = goal > 0 ? Math.min(100, Math.round((val / goal) * 100)) : 0;
+    return `
+      <div class="macro-row">
+        <span class="macro-label">${label}</span>
+        ${goals ? `<div class="lb-bar-track"><div class="lb-bar-fill" style="width:${pct}%"></div></div>` : '<div></div>'}
+        <span class="macro-val">${Math.round(val)}${goals ? ` / ${Math.round(goal)}` : ''} g</span>
+      </div>`;
+  };
+
+  let goalsArea;
+  if (editingGoals) {
+    const g = goals || { calories: '', protein: '', carbs: '', fat: '' };
+    goalsArea = `
+      <div class="goals-form">
+        <div class="goals-form-row">
+          <input type="number" inputmode="numeric" id="goalCal"  class="lift-input" placeholder="Calories" value="${g.calories}"/>
+          <input type="number" inputmode="numeric" id="goalPro"  class="lift-input" placeholder="Protein g" value="${g.protein}"/>
+        </div>
+        <div class="goals-form-row">
+          <input type="number" inputmode="numeric" id="goalCarb" class="lift-input" placeholder="Carbs g" value="${g.carbs}"/>
+          <input type="number" inputmode="numeric" id="goalFat"  class="lift-input" placeholder="Fat g" value="${g.fat}"/>
+        </div>
+        <div class="goals-form-row">
+          <button class="lift-save" data-action="nut-save-goals">Save goals</button>
+          <button class="lift-cancel" data-action="nut-cancel-goals">&#215;</button>
+        </div>
+      </div>`;
+  } else {
+    goalsArea = `<button class="lift-history-toggle" data-action="nut-edit-goals">${goals ? 'Edit goals' : 'Set goals'}</button>`;
+  }
+
+  return `
+    <div class="nut-totals">
+      <div class="nut-cal-line">${calLine}</div>
+      ${macroRow('Protein', totals.pro,  goals?.protein)}
+      ${macroRow('Carbs',   totals.carb, goals?.carbs)}
+      ${macroRow('Fat',     totals.fat,  goals?.fat)}
+      ${goalsArea}
+    </div>`;
+}
+
+function mealCardHTML(meal, entries) {
+  const mealEntries = entries.filter(e => e.meal === meal.key);
+  const subtotal = mealEntries.reduce((sum, e) => {
+    const food = foodById(e.food_id);
+    return food ? sum + macrosFor(food, e.grams).cal : sum;
+  }, 0);
+
+  const rows = mealEntries.map(e => {
+    const food = foodById(e.food_id);
+    if (!food) return '';
+    const m = macrosFor(food, e.grams);
+    return `
+      <div class="food-row">
+        <div class="food-row-name">
+          ${esc(food.name)}${food.brand ? ` <span class="food-row-brand">${esc(food.brand)}</span>` : ''}
+          <div class="food-row-detail">${Math.round(e.grams)} g</div>
+        </div>
+        <span class="food-row-stats">${Math.round(m.cal)} cal · P ${Math.round(m.pro)} · C ${Math.round(m.carb)} · F ${Math.round(m.fat)}</span>
+        <button class="comment-del" data-action="nut-delete-log" data-log-id="${e.id}" aria-label="Delete">&#215;</button>
+      </div>`;
+  }).join('');
+
+  const addArea = addFoodMeal === meal.key
+    ? foodAddPanelHTML()
+    : `<button class="add-trigger meal-add" data-action="nut-open-add" data-meal="${meal.key}">+ Add food</button>`;
+
+  return `
+    <div class="meal-card">
+      <div class="meal-header">
+        <span>${meal.label}</span>
+        ${mealEntries.length > 0 ? `<span class="meal-sub">${Math.round(subtotal)} cal</span>` : ''}
+      </div>
+      ${rows}
+      ${addArea}
+    </div>`;
+}
+
+function foodAddPanelHTML() {
+  if (foodFormMode) return foodFormHTML();
+  if (pendingLogFoodId) return logFormHTML();
+  return `
+    <div class="food-add-panel">
+      <input class="add-input" id="foodSearch" placeholder="Search foods" value="${esc(foodSearchQuery)}"/>
+      <div id="food-search-results">${foodSearchResultsHTML()}</div>
+      <div class="food-panel-actions">
+        <button class="lift-history-toggle" data-action="nut-new-food">+ New food</button>
+        <button class="lift-history-toggle" data-action="nut-cancel-add">Cancel</button>
+      </div>
+    </div>`;
+}
+
+function foodSearchResultsHTML() {
+  if (foods.length === 0) return `<p class="empty-msg food-empty">No foods in the database yet. Add the first one.</p>`;
+  const q = foodSearchQuery.trim().toLowerCase();
+  const matches = q
+    ? foods.filter(f => f.name.toLowerCase().includes(q) || (f.brand || '').toLowerCase().includes(q))
+    : foods;
+  if (matches.length === 0) return `<p class="empty-msg food-empty">No matches. Add it as a new food.</p>`;
+  return matches.slice(0, 8).map(f => `
+    <button class="food-result" data-action="nut-pick-food" data-food-id="${f.id}">
+      <span class="food-result-name">${esc(f.name)}${f.brand ? ` <span class="food-row-brand">${esc(f.brand)}</span>` : ''}</span>
+      <span class="food-row-stats">${Math.round(f.calories)} cal / 100g</span>
+    </button>`).join('');
+}
+
+function renderFoodSearchResults() {
+  const el = document.getElementById('food-search-results');
+  if (el) el.innerHTML = foodSearchResultsHTML();
+}
+
+function logFormHTML() {
+  const food = foodById(pendingLogFoodId);
+  if (!food) { pendingLogFoodId = null; return foodAddPanelHTML(); }
+  const servings = foodServings.filter(s => s.food_id === food.id);
+
+  return `
+    <div class="food-add-panel">
+      <div class="log-food-header">
+        <div class="food-result-name">${esc(food.name)}${food.brand ? ` <span class="food-row-brand">${esc(food.brand)}</span>` : ''}</div>
+        <div class="food-row-stats">Per 100g: ${Math.round(food.calories)} cal · P ${Math.round(food.protein)} · C ${Math.round(food.carbs)} · F ${Math.round(food.fat)}</div>
+      </div>
+      <div class="goals-form-row">
+        <input type="number" inputmode="decimal" id="logQty" class="lift-input" placeholder="Amount"/>
+        <select id="logUnit" class="strength-picker">
+          <option value="g">grams</option>
+          ${servings.map(s => `<option value="${s.id}">${esc(s.label)} (${s.grams}g)</option>`).join('')}
+        </select>
+      </div>
+      <div class="goals-form-row">
+        <button class="lift-save" data-action="nut-log-food">Add to ${addFoodMeal}</button>
+        <button class="lift-history-toggle" data-action="nut-edit-food" data-food-id="${food.id}">Edit food</button>
+        <button class="lift-cancel" data-action="nut-back-to-search">&#215;</button>
+      </div>
+    </div>`;
+}
+
+function foodFormHTML() {
+  const editing = foodFormMode === 'edit' ? foodById(editingFoodId) : null;
+  const f = editing || { name: '', brand: '', calories: '', protein: '', carbs: '', fat: '' };
+
+  return `
+    <div class="food-add-panel">
+      <div class="log-food-header">
+        <div class="food-result-name">${editing ? 'Edit food' : 'New food'}</div>
+        <div class="food-row-stats">Nutrition values are per 100g</div>
+      </div>
+      <div class="goals-form-row">
+        <input id="nfName"  class="add-input" placeholder="Name" value="${esc(f.name)}"/>
+        <input id="nfBrand" class="add-input" placeholder="Brand (optional)" value="${esc(f.brand || '')}"/>
+      </div>
+      <div class="goals-form-row">
+        <input type="number" inputmode="decimal" id="nfCal" class="lift-input" placeholder="Calories" value="${f.calories}"/>
+        <input type="number" inputmode="decimal" id="nfPro" class="lift-input" placeholder="Protein g" value="${f.protein}"/>
+      </div>
+      <div class="goals-form-row">
+        <input type="number" inputmode="decimal" id="nfCarb" class="lift-input" placeholder="Carbs g" value="${f.carbs}"/>
+        <input type="number" inputmode="decimal" id="nfFat"  class="lift-input" placeholder="Fat g" value="${f.fat}"/>
+      </div>
+      ${!editing ? `
+      <div class="goals-form-row">
+        <input id="nfServLabel" class="add-input" placeholder="Serving name (optional, e.g. 1 slice)"/>
+        <input type="number" inputmode="decimal" id="nfServGrams" class="lift-input" placeholder="Serving grams"/>
+      </div>` : ''}
+      <div class="goals-form-row">
+        <button class="lift-save" data-action="nut-save-food">${editing ? 'Save changes' : 'Add food'}</button>
+        <button class="lift-cancel" data-action="nut-cancel-food">&#215;</button>
+      </div>
+    </div>`;
+}
+
+// ─────────────────────────────────────────────
+// Actions: Nutrition
+// ─────────────────────────────────────────────
+
+async function saveFood() {
+  const name = document.getElementById('nfName')?.value.trim();
+  const brand = document.getElementById('nfBrand')?.value.trim() || null;
+  const cal  = parseFloat(document.getElementById('nfCal')?.value);
+  const pro  = parseFloat(document.getElementById('nfPro')?.value);
+  const carb = parseFloat(document.getElementById('nfCarb')?.value);
+  const fat  = parseFloat(document.getElementById('nfFat')?.value);
+  if (!name || isNaN(cal) || isNaN(pro) || isNaN(carb) || isNaN(fat)) return;
+  if (cal < 0 || pro < 0 || carb < 0 || fat < 0) return;
+
+  if (foodFormMode === 'edit') {
+    const id = editingFoodId;
+    foodFormMode = null;
+    editingFoodId = null;
+    renderNutritionBody();
+    await db.from('foods').update({ name, brand, calories: cal, protein: pro, carbs: carb, fat }).eq('id', id);
+    return;
+  }
+
+  const id = 'f' + Date.now();
+  const servLabel = document.getElementById('nfServLabel')?.value.trim();
+  const servGrams = parseFloat(document.getElementById('nfServGrams')?.value);
+
+  foodFormMode = null;
+  pendingLogFoodId = id;
+  renderNutritionBody();
+
+  await db.from('foods').insert({ id, name, brand, calories: cal, protein: pro, carbs: carb, fat });
+  if (servLabel && servGrams > 0) {
+    await db.from('food_servings').insert({ id: 's' + Date.now(), food_id: id, label: servLabel, grams: servGrams });
+  }
+}
+
+async function logFood() {
+  const qty = parseFloat(document.getElementById('logQty')?.value);
+  const unit = document.getElementById('logUnit')?.value;
+  if (!qty || qty <= 0 || !pendingLogFoodId || !addFoodMeal || !nutMember) return;
+
+  let grams;
+  if (unit === 'g') {
+    grams = qty;
+  } else {
+    const serving = foodServings.find(s => s.id === unit);
+    if (!serving) return;
+    grams = qty * serving.grams;
+  }
+
+  const entry = {
+    member_id: nutMember,
+    log_date:  nutDate,
+    meal:      addFoodMeal,
+    food_id:   pendingLogFoodId,
+    grams,
+  };
+
+  addFoodMeal = null;
+  pendingLogFoodId = null;
+  foodSearchQuery = '';
+  renderNutritionBody();
+
+  await db.from('food_log').insert(entry);
+}
+
+async function deleteFoodLog(logId) {
+  await db.from('food_log').delete().eq('id', Number(logId));
+}
+
+async function saveGoals() {
+  const cal  = parseFloat(document.getElementById('goalCal')?.value);
+  const pro  = parseFloat(document.getElementById('goalPro')?.value);
+  const carb = parseFloat(document.getElementById('goalCarb')?.value);
+  const fat  = parseFloat(document.getElementById('goalFat')?.value);
+  if (isNaN(cal) || isNaN(pro) || isNaN(carb) || isNaN(fat) || !nutMember) return;
+  if (cal < 0 || pro < 0 || carb < 0 || fat < 0) return;
+
+  editingGoals = false;
+  renderNutritionBody();
+  await db.from('macro_goals').upsert({ member_id: nutMember, calories: cal, protein: pro, carbs: carb, fat });
+}
+
+// ─────────────────────────────────────────────
 // Jumpscare
 // ─────────────────────────────────────────────
 
@@ -924,7 +1297,7 @@ function triggerJumpscare(callback) {
 document.addEventListener('click', e => {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
-  const { action, id, slot, lift, entryId, commentId, memberId, type } = btn.dataset;
+  const { action, id, slot, lift, entryId, commentId, memberId, type, meal, foodId, logId } = btn.dataset;
 
   if (action === 'toggle')              toggleSlot(id, Number(slot));
   if (action === 'start-remove')        { triggerJumpscare(() => { confirmingId = id; renderTracker(); }); }
@@ -950,7 +1323,36 @@ document.addEventListener('click', e => {
 
   if (action === 'post-comment')        postComment();
   if (action === 'delete-comment')      deleteComment(commentId);
+
+  if (action === 'nut-prev-day')        { shiftNutDate(-1); resetNutPanels(); renderNutritionBody(); }
+  if (action === 'nut-next-day')        { shiftNutDate(1);  resetNutPanels(); renderNutritionBody(); }
+  if (action === 'nut-open-add')        { resetNutPanels(); addFoodMeal = meal; renderNutritionBody(); focusFoodSearch(); }
+  if (action === 'nut-cancel-add')      { resetNutPanels(); renderNutritionBody(); }
+  if (action === 'nut-pick-food')       { pendingLogFoodId = foodId; renderNutritionBody(); }
+  if (action === 'nut-back-to-search')  { pendingLogFoodId = null; renderNutritionBody(); focusFoodSearch(); }
+  if (action === 'nut-log-food')        logFood();
+  if (action === 'nut-delete-log')      deleteFoodLog(logId);
+  if (action === 'nut-new-food')        { foodFormMode = 'create'; renderNutritionBody(); }
+  if (action === 'nut-edit-food')       { foodFormMode = 'edit'; editingFoodId = foodId; renderNutritionBody(); }
+  if (action === 'nut-save-food')       saveFood();
+  if (action === 'nut-cancel-food')     { foodFormMode = null; editingFoodId = null; renderNutritionBody(); }
+  if (action === 'nut-edit-goals')      { editingGoals = true; renderNutritionBody(); }
+  if (action === 'nut-save-goals')      saveGoals();
+  if (action === 'nut-cancel-goals')    { editingGoals = false; renderNutritionBody(); }
 });
+
+function resetNutPanels() {
+  addFoodMeal = null;
+  pendingLogFoodId = null;
+  foodFormMode = null;
+  editingFoodId = null;
+  foodSearchQuery = '';
+}
+
+function focusFoodSearch() {
+  const input = document.getElementById('foodSearch');
+  if (input) input.focus();
+}
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -971,18 +1373,32 @@ document.getElementById('periodTabs').addEventListener('click', e => {
 });
 
 document.getElementById('strengthPicker').addEventListener('change', e => {
-  currentStrengthMember = e.target.value;
+  currentStrengthMember = e.target.value || null;
   loggingLiftId = null; expandedLiftId = null; showingLiftForm = false;
   renderStrengthList(); renderStrengthAddArea();
 });
 
 document.getElementById('panel-leaderboard').addEventListener('change', e => {
-  if (e.target.id === 'htPicker1') { htMember1 = e.target.value; renderHeadToHead(); }
-  if (e.target.id === 'htPicker2') { htMember2 = e.target.value; renderHeadToHead(); }
+  if (e.target.id === 'htPicker1') { htMember1 = e.target.value || null; renderHeadToHead(); }
+  if (e.target.id === 'htPicker2') { htMember2 = e.target.value || null; renderHeadToHead(); }
 });
 
 document.getElementById('panel-trash').addEventListener('change', e => {
-  if (e.target.id === 'trashPoster') trashTalkPoster = e.target.value;
+  if (e.target.id === 'trashPoster') trashTalkPoster = e.target.value || null;
+});
+
+document.getElementById('nutritionPicker').addEventListener('change', e => {
+  nutMember = e.target.value || null;
+  addFoodMeal = null; pendingLogFoodId = null; foodFormMode = null;
+  editingFoodId = null; editingGoals = false; foodSearchQuery = '';
+  renderNutrition();
+});
+
+document.getElementById('panel-nutrition').addEventListener('input', e => {
+  if (e.target.id === 'foodSearch') {
+    foodSearchQuery = e.target.value;
+    renderFoodSearchResults();
+  }
 });
 document.getElementById('panel-trash').addEventListener('keydown', e => {
   if (e.target.id === 'trashInput' && (e.ctrlKey || e.metaKey) && e.key === 'Enter') postComment();

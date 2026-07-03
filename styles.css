@@ -1106,6 +1106,128 @@ h1 {
   color: var(--gold);
 }
 
+/* =========================
+   Nutrition
+   ========================= */
+.nut-daynav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.nut-daybtn {
+  padding: 5px 12px;
+  border: 1px solid var(--border-2);
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.nut-daybtn:hover { color: var(--text); }
+.nut-daylabel { font-size: 14px; font-weight: 600; }
+
+.nut-totals {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+.nut-cal-line { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+.nut-cal-goal { font-size: 13px; font-weight: 400; color: var(--text-3); }
+
+.macro-row {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  margin-top: 6px;
+}
+.macro-label { font-size: 12px; color: var(--text-2); }
+.macro-val   { font-size: 12px; color: var(--text-2); white-space: nowrap; }
+
+.goals-form { margin-top: 10px; }
+.goals-form-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  align-items: center;
+}
+.goals-form-row .add-input,
+.goals-form-row .lift-input { flex: 1; min-width: 0; }
+.goals-form-row .strength-picker { flex: 1; }
+
+.meal-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.meal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 10px 13px;
+  font-size: 14px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+.meal-sub { font-size: 12px; font-weight: 400; color: var(--text-3); }
+
+.food-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 13px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.food-row-name   { flex: 1; min-width: 0; }
+.food-row-brand  { color: var(--text-3); font-size: 11px; }
+.food-row-detail { color: var(--text-3); font-size: 11px; margin-top: 1px; }
+.food-row-stats  { color: var(--text-2); font-size: 11px; white-space: nowrap; }
+
+.meal-add {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  width: 100%;
+  text-align: left;
+  padding: 9px 13px;
+}
+
+.food-add-panel { padding: 10px 13px; }
+.food-add-panel .add-input { width: 100%; margin-bottom: 6px; }
+.food-panel-actions { display: flex; gap: 12px; margin-top: 6px; }
+
+.food-result {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 4px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.food-result:hover { background: var(--surface-2); }
+.food-result-name { font-weight: 500; }
+.food-empty { padding: 0.75rem 0; }
+
+.log-food-header { margin-bottom: 4px; }
+.log-food-header .food-row-stats { margin-top: 2px; }
+
 .credit {
   position: fixed;
   bottom: 14px;
