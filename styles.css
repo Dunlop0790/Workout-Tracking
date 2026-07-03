@@ -1252,6 +1252,12 @@ h1 {
   color: var(--red);
   margin-top: 6px;
 }
+.form-error {
+  font-size: 12px;
+  color: var(--red);
+  margin-top: 6px;
+}
+.form-error:empty { display: none; }
 
 /* =========================
    Desktop layout

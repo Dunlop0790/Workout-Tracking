@@ -1036,6 +1036,7 @@ function dbFoodFormHTML() {
       <input id="dbServLabel" class="add-input" placeholder="Serving name (optional)"/>
       <input type="number" inputmode="decimal" id="dbServGrams" class="lift-input" placeholder="Grams"/>
     </div>` : ''}
+    <div class="form-error" id="dbError"></div>
     <div class="goals-form-row">
       <button class="lift-save" data-action="db-save-food">${editing ? 'Save' : 'Add food'}</button>
       ${editing ? `<button class="lift-history-toggle" data-action="db-delete-food" data-food-id="${editing.id}">Delete</button>` : ''}
@@ -1109,6 +1110,7 @@ function totalsCardHTML(totals, goals) {
           <input type="number" inputmode="numeric" id="goalCarb" class="lift-input" placeholder="Carbs g" value="${g.carbs}"/>
           <input type="number" inputmode="numeric" id="goalFat"  class="lift-input" placeholder="Fat g" value="${g.fat}"/>
         </div>
+        <div class="form-error" id="goalError"></div>
         <div class="goals-form-row">
           <button class="lift-save" data-action="nut-save-goals">Save goals</button>
           <button class="lift-cancel" data-action="nut-cancel-goals">&#215;</button>
@@ -1224,6 +1226,7 @@ function logFormHTML() {
           ${servings.map(s => `<option value="${s.id}">${esc(s.label)} (${s.grams}g)</option>`).join('')}
         </select>
       </div>
+      <div class="form-error" id="logError"></div>
       <div class="goals-form-row">
         <button class="lift-save" data-action="nut-log-food">Add to ${addFoodMeal}</button>
         <button class="lift-history-toggle" data-action="nut-edit-food" data-food-id="${food.id}">Edit food</button>
@@ -1259,6 +1262,7 @@ function foodFormHTML() {
         <input id="nfServLabel" class="add-input" placeholder="Serving name (optional, e.g. 1 slice)"/>
         <input type="number" inputmode="decimal" id="nfServGrams" class="lift-input" placeholder="Serving grams"/>
       </div>` : ''}
+      <div class="form-error" id="nfError"></div>
       <div class="goals-form-row">
         <button class="lift-save" data-action="nut-save-food">${editing ? 'Save changes' : 'Add food'}</button>
         <button class="lift-cancel" data-action="nut-cancel-food">&#215;</button>
@@ -1270,6 +1274,11 @@ function foodFormHTML() {
 // Actions: Nutrition
 // ─────────────────────────────────────────────
 
+function showFormError(id, msg) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = msg;
+}
+
 async function saveFood() {
   const name = document.getElementById('nfName')?.value.trim();
   const brand = document.getElementById('nfBrand')?.value.trim() || null;
@@ -1277,8 +1286,14 @@ async function saveFood() {
   const pro  = parseFloat(document.getElementById('nfPro')?.value);
   const carb = parseFloat(document.getElementById('nfCarb')?.value);
   const fat  = parseFloat(document.getElementById('nfFat')?.value);
-  if (!name || isNaN(cal) || isNaN(pro) || isNaN(carb) || isNaN(fat)) return;
-  if (cal < 0 || pro < 0 || carb < 0 || fat < 0) return;
+  if (!name || isNaN(cal) || isNaN(pro) || isNaN(carb) || isNaN(fat)) {
+    showFormError('nfError', 'Fill in the name and all four nutrition fields.');
+    return;
+  }
+  if (cal < 0 || pro < 0 || carb < 0 || fat < 0) {
+    showFormError('nfError', 'Nutrition values cannot be negative.');
+    return;
+  }
 
   if (foodFormMode === 'edit') {
     const id = editingFoodId;
@@ -1306,7 +1321,11 @@ async function saveFood() {
 async function logFood() {
   const qty = parseFloat(document.getElementById('logQty')?.value);
   const unit = document.getElementById('logUnit')?.value;
-  if (!qty || qty <= 0 || !pendingLogFoodId || !addFoodMeal || !nutMember) return;
+  if (!qty || qty <= 0) {
+    showFormError('logError', 'Enter an amount greater than zero.');
+    return;
+  }
+  if (!pendingLogFoodId || !addFoodMeal || !nutMember) return;
 
   let grams;
   if (unit === 'g') {
@@ -1342,8 +1361,15 @@ async function saveGoals() {
   const pro  = parseFloat(document.getElementById('goalPro')?.value);
   const carb = parseFloat(document.getElementById('goalCarb')?.value);
   const fat  = parseFloat(document.getElementById('goalFat')?.value);
-  if (isNaN(cal) || isNaN(pro) || isNaN(carb) || isNaN(fat) || !nutMember) return;
-  if (cal < 0 || pro < 0 || carb < 0 || fat < 0) return;
+  if (isNaN(cal) || isNaN(pro) || isNaN(carb) || isNaN(fat)) {
+    showFormError('goalError', 'Fill in all four goal fields.');
+    return;
+  }
+  if (cal < 0 || pro < 0 || carb < 0 || fat < 0) {
+    showFormError('goalError', 'Goal values cannot be negative.');
+    return;
+  }
+  if (!nutMember) return;
 
   editingGoals = false;
   renderNutritionBody();
@@ -1404,6 +1430,7 @@ function goalCalcFormHTML() {
           <option value="2">2 lb/week</option>
         </select>
       </div>
+      <div class="form-error" id="gcError"></div>
       <div class="goals-form-row">
         <button class="lift-save" data-action="nut-run-goal-calc">Calculate</button>
         <button class="lift-cancel" data-action="nut-calc-cancel">&#215;</button>
@@ -1439,8 +1466,14 @@ function runGoalCalc() {
   const goal     = document.getElementById('gcGoal')?.value;
   const rate     = parseFloat(document.getElementById('gcRate')?.value);
 
-  if (!sex || !age || !ft || !lb || !activity || isNaN(sessions) || !goal) return;
-  if (goal !== 'maintain' && !rate) return;
+  if (!sex || !age || !ft || !lb || !activity || isNaN(sessions) || !goal) {
+    showFormError('gcError', 'Fill in every field.');
+    return;
+  }
+  if (goal !== 'maintain' && !rate) {
+    showFormError('gcError', 'Pick a rate for your goal.');
+    return;
+  }
 
   const kg  = lb * 0.4536;
   const cm  = (ft * 12 + inches) * 2.54;
@@ -1485,8 +1518,14 @@ async function saveDbFood() {
   const pro   = parseFloat(document.getElementById('dbPro')?.value);
   const carb  = parseFloat(document.getElementById('dbCarb')?.value);
   const fat   = parseFloat(document.getElementById('dbFat')?.value);
-  if (!name || isNaN(cal) || isNaN(pro) || isNaN(carb) || isNaN(fat)) return;
-  if (cal < 0 || pro < 0 || carb < 0 || fat < 0) return;
+  if (!name || isNaN(cal) || isNaN(pro) || isNaN(carb) || isNaN(fat)) {
+    showFormError('dbError', 'Fill in the name and all four nutrition fields.');
+    return;
+  }
+  if (cal < 0 || pro < 0 || carb < 0 || fat < 0) {
+    showFormError('dbError', 'Nutrition values cannot be negative.');
+    return;
+  }
 
   if (dbFormMode === 'edit') {
     const id = dbEditingId;
