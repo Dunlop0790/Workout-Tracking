@@ -29,6 +29,7 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -42,7 +43,11 @@ body {
    Header
    ========================= */
 header {
-  padding: 16px 16px 0;
+  /* Full bleed: escape the centered #root so the title sits at the
+     viewport's far left and the team stat at its far right. */
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  padding: 16px 24px 0;
   margin-bottom: 14px;
 }
 
@@ -55,9 +60,9 @@ header {
 }
 
 h1 {
-  font-size: 25px;
+  font-size: 29px;
   font-weight: 700;
-  letter-spacing: -0.6px;
+  letter-spacing: -0.7px;
   margin-bottom: 3px;
 }
 
@@ -1390,8 +1395,7 @@ h1 {
    ========================= */
 @media (min-width: 920px) {
   #root  { max-width: 920px; }
-  header { max-width: 920px; margin-left: auto; margin-right: auto; }
-  .panel { max-width: 572px; margin-left: 0; margin-right: auto; }
+  .panel { max-width: 572px; margin-left: auto; margin-right: auto; }
   #panel-tracker, #panel-nutrition { max-width: 920px; }
   .split-layout {
     display: grid;
