@@ -1383,6 +1383,14 @@ h1 {
 }
 .goals-form-row .serving-unit { flex: 0 0 84px; }
 
+.import-hint {
+  font-size: 11px;
+  color: var(--text-3);
+  margin: 8px 0;
+  line-height: 1.5;
+}
+.import-box { font-size: 12px; font-family: inherit; }
+
 /* =========================
    Desktop layout
    Nutrition gets a side column; everything else stays centered.
