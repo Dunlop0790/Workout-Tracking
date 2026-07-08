@@ -243,6 +243,8 @@ let editingFoodId         = null;
 let editingGoals          = false;
 let foodSearchQuery       = '';
 let dbSearch              = '';
+let foodGroupMode         = 'brand';
+const expandedFoodGroups  = new Set();
 let dbFormMode            = null;
 let dbEditingId           = null;
 let goalCalcOpen          = false;
@@ -1076,6 +1078,7 @@ function renderFoodDb() {
   }
   el.innerHTML = `
     <input class="add-input db-search" id="dbSearch" placeholder="Search foods" value="${esc(dbSearch)}"/>
+    <div class="db-controls">${foodGroupSelectHTML('dbGroupSel')}</div>
     <div id="db-food-list">${dbFoodListHTML()}</div>
     <div class="food-panel-actions">
       <button class="add-trigger" data-action="db-new-food">+ New food</button>
@@ -1083,20 +1086,73 @@ function renderFoodDb() {
     </div>`;
 }
 
-function dbFoodListHTML() {
-  if (foods.length === 0) return `<p class="empty-msg food-empty">No foods yet. Add the first one.</p>`;
-  const q = dbSearch.trim().toLowerCase();
-  const matches = q
-    ? foods.filter(f => f.name.toLowerCase().includes(q) || (f.brand || '').toLowerCase().includes(q))
-    : foods;
-  if (matches.length === 0) return `<p class="empty-msg food-empty">No matches.</p>`;
-  const shown = matches.slice(0, 12);
-  return shown.map(f => `
-    <button class="food-result" data-action="db-edit-food" data-food-id="${f.id}">
+function foodGroupSelectHTML(selectId) {
+  return `
+    <select id="${selectId}" class="strength-picker food-group-select">
+      <option value="brand"    ${foodGroupMode === 'brand'    ? 'selected' : ''}>Group by brand</option>
+      <option value="category" ${foodGroupMode === 'category' ? 'selected' : ''}>Group by category</option>
+      <option value="none"     ${foodGroupMode === 'none'     ? 'selected' : ''}>Flat A to Z</option>
+    </select>`;
+}
+
+function foodRowsHTML(items, rowAction) {
+  return items.map(f => `
+    <button class="food-result" data-action="${rowAction}" data-food-id="${f.id}">
       <span class="food-result-name">${iconSvg(f.icon)}${esc(f.name)}${f.brand ? ` <span class="food-row-brand">${esc(f.brand)}</span>` : ''}</span>
       <span class="food-row-stats">${foodCalDisplay(f)}</span>
-    </button>`).join('') +
-    (matches.length > shown.length ? `<p class="db-more">${matches.length - shown.length} more, refine your search</p>` : '');
+    </button>`).join('');
+}
+
+function foodBrowserHTML(query, rowAction) {
+  if (foods.length === 0) return `<p class="empty-msg food-empty">No foods yet. Add the first one.</p>`;
+  const q = query.trim().toLowerCase();
+
+  // Searching: flat matches, folders get out of the way.
+  if (q) {
+    const matches = foods
+      .filter(f => f.name.toLowerCase().includes(q) || (f.brand || '').toLowerCase().includes(q))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    if (matches.length === 0) return `<p class="empty-msg food-empty">No matches.</p>`;
+    return foodRowsHTML(matches, rowAction);
+  }
+
+  if (foodGroupMode === 'none') {
+    return foodRowsHTML([...foods].sort((a, b) => a.name.localeCompare(b.name)), rowAction);
+  }
+
+  // Build folders
+  let groups;
+  if (foodGroupMode === 'category') {
+    groups = FOOD_ICONS.map(i => ({
+      key: i.key, label: i.label,
+      items: foods.filter(f => f.icon === i.key),
+    }));
+    const untagged = foods.filter(f => !f.icon);
+    if (untagged.length > 0) groups.push({ key: 'uncategorized', label: 'No category', items: untagged });
+  } else {
+    const brands = [...new Set(foods.filter(f => f.brand).map(f => f.brand))].sort((a, b) => a.localeCompare(b));
+    groups = brands.map(b => ({ key: 'b:' + b, label: b, items: foods.filter(f => f.brand === b) }));
+    const generic = foods.filter(f => !f.brand);
+    if (generic.length > 0) groups.push({ key: 'b:none', label: 'No brand', items: generic });
+  }
+
+  return groups
+    .filter(g => g.items.length > 0)
+    .map(g => {
+      const stateKey = foodGroupMode + ':' + g.key;
+      const open = expandedFoodGroups.has(stateKey);
+      const rows = open ? foodRowsHTML([...g.items].sort((a, b) => a.name.localeCompare(b.name)), rowAction) : '';
+      return `
+        <button class="food-group-header" data-action="toggle-food-group" data-group-key="${esc(stateKey)}">
+          <span>${open ? '▾' : '▸'} ${esc(g.label)}</span>
+          <span class="food-group-count">${g.items.length}</span>
+        </button>
+        ${rows}`;
+    }).join('');
+}
+
+function dbFoodListHTML() {
+  return foodBrowserHTML(dbSearch, 'db-edit-food');
 }
 
 function renderDbFoodList() {
@@ -1309,6 +1365,7 @@ function foodAddPanelHTML() {
   return `
     <div class="food-add-panel">
       <input class="add-input" id="foodSearch" placeholder="Search foods" value="${esc(foodSearchQuery)}"/>
+      <div class="db-controls">${foodGroupSelectHTML('logGroupSel')}</div>
       <div id="food-search-results">${foodSearchResultsHTML()}</div>
       <div class="food-panel-actions">
         <button class="lift-history-toggle" data-action="nut-new-food">+ New food</button>
@@ -1318,17 +1375,7 @@ function foodAddPanelHTML() {
 }
 
 function foodSearchResultsHTML() {
-  if (foods.length === 0) return `<p class="empty-msg food-empty">No foods in the database yet. Add the first one.</p>`;
-  const q = foodSearchQuery.trim().toLowerCase();
-  const matches = q
-    ? foods.filter(f => f.name.toLowerCase().includes(q) || (f.brand || '').toLowerCase().includes(q))
-    : foods;
-  if (matches.length === 0) return `<p class="empty-msg food-empty">No matches. Add it as a new food.</p>`;
-  return matches.slice(0, 8).map(f => `
-    <button class="food-result" data-action="nut-pick-food" data-food-id="${f.id}">
-      <span class="food-result-name">${iconSvg(f.icon)}${esc(f.name)}${f.brand ? ` <span class="food-row-brand">${esc(f.brand)}</span>` : ''}</span>
-      <span class="food-row-stats">${foodCalDisplay(f)}</span>
-    </button>`).join('');
+  return foodBrowserHTML(foodSearchQuery, 'nut-pick-food');
 }
 
 function renderFoodSearchResults() {
@@ -1925,6 +1972,13 @@ document.addEventListener('click', e => {
 
   if (action === 'db-new-food')         { dbFormMode = 'create'; dbEditingId = null; renderFoodDb(); }
   if (action === 'db-import-open')      { dbFormMode = 'import'; dbEditingId = null; renderFoodDb(); }
+  if (action === 'toggle-food-group') {
+    const key = btn.dataset.groupKey;
+    if (expandedFoodGroups.has(key)) expandedFoodGroups.delete(key);
+    else expandedFoodGroups.add(key);
+    renderDbFoodList();
+    renderFoodSearchResults();
+  }
   if (action === 'db-import-run')       importFoods();
   if (action === 'db-edit-food')        { dbFormMode = 'edit'; dbEditingId = foodId; renderFoodDb(); }
   if (action === 'db-save-food')        saveDbFood();
@@ -1989,6 +2043,11 @@ document.getElementById('nutritionPicker').addEventListener('change', e => {
 });
 
 document.getElementById('panel-nutrition').addEventListener('change', e => {
+  if (e.target.id === 'dbGroupSel' || e.target.id === 'logGroupSel') {
+    foodGroupMode = e.target.value;
+    renderDbFoodList();
+    renderFoodSearchResults();
+  }
   if (e.target.id === 'dayStartInput' && nutMember) {
     const v = e.target.value;
     if (!v) return;
