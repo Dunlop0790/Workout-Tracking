@@ -171,6 +171,29 @@ function primaryServing(foodId) {
   return [...list].sort((a, b) => a.id.localeCompare(b.id))[0];
 }
 
+// Most recently logged distinct foods for a member, newest first.
+function recentFoodsFor(memberId, n) {
+  const logs = foodLog
+    .filter(e => e.member_id === memberId)
+    .sort((a, b) => (b.log_date + b.log_time).localeCompare(a.log_date + a.log_time));
+  const seen = new Set();
+  const out = [];
+  for (const e of logs) {
+    if (seen.has(e.food_id)) continue;
+    seen.add(e.food_id);
+    const f = foodById(e.food_id);
+    if (f) out.push(f);
+    if (out.length >= n) break;
+  }
+  return out;
+}
+
+function prevDateStr(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() - 1);
+  return localDateStr(d);
+}
+
 function foodCalDisplay(f) {
   const sv = primaryServing(f.id);
   if (sv) return `${Math.round(f.calories * sv.grams / 100)} cal · ${esc(sv.label)}`;
@@ -257,6 +280,7 @@ let dbEditingId           = null;
 let goalCalcOpen          = false;
 let goalCalcResult        = null;
 let news                  = [];
+let logCopyMsg            = '';
 
 // ─────────────────────────────────────────────
 // Data
@@ -1384,7 +1408,11 @@ function logCardHTML(entries, dayStart) {
 
   const addArea = addFoodOpen
     ? foodAddPanelHTML()
-    : `<button class="add-trigger log-add" data-action="nut-open-add">+ Add food</button>`;
+    : `<div class="log-actions">
+         <button class="add-trigger log-add" data-action="nut-open-add">+ Add food</button>
+         <button class="add-trigger log-add log-copy" data-action="nut-copy-yesterday">Copy yesterday</button>
+       </div>
+       ${logCopyMsg ? `<div class="log-copy-msg">${esc(logCopyMsg)}</div>` : ''}`;
 
   return `
     <div class="log-card">
@@ -1397,12 +1425,27 @@ function logCardHTML(entries, dayStart) {
     </div>`;
 }
 
+function recentStripHTML() {
+  if (foodSearchQuery.trim()) return '';
+  const recents = recentFoodsFor(nutMember, 8);
+  if (recents.length === 0) return '';
+  return `
+    <div class="serving-label">Recent</div>
+    <div class="recent-strip">
+      ${recents.map(f => `
+        <button class="recent-chip" data-action="nut-pick-food" data-food-id="${f.id}">
+          ${iconSvg(f.icon)}${esc(f.name)}
+        </button>`).join('')}
+    </div>`;
+}
+
 function foodAddPanelHTML() {
   if (foodFormMode) return foodFormHTML();
   if (pendingLogFoodId) return logFormHTML();
   return `
     <div class="food-add-panel">
       <input class="add-input" id="foodSearch" placeholder="Search foods" value="${esc(foodSearchQuery)}"/>
+      ${recentStripHTML()}
       <div class="db-controls">${foodGroupSelectHTML('logGroupSel')}</div>
       <div id="food-search-results">${foodSearchResultsHTML()}</div>
       <div class="food-panel-actions">
@@ -1633,6 +1676,26 @@ async function logFood() {
   renderNutritionBody();
 
   await db.from('food_log').insert(entry);
+}
+
+async function copyYesterday() {
+  if (!nutMember) return;
+  const prev = prevDateStr(nutDate);
+  const entries = foodLog.filter(e => e.member_id === nutMember && e.log_date === prev);
+  if (entries.length === 0) {
+    logCopyMsg = 'Nothing logged the day before.';
+    renderNutritionBody();
+    return;
+  }
+  logCopyMsg = '';
+  renderNutritionBody();
+  await db.from('food_log').insert(entries.map(e => ({
+    member_id: nutMember,
+    log_date:  nutDate,
+    log_time:  e.log_time,
+    food_id:   e.food_id,
+    grams:     e.grams,
+  })));
 }
 
 async function deleteFoodLog(logId) {
@@ -2024,9 +2087,10 @@ document.addEventListener('click', e => {
   if (action === 'post-comment')        postComment();
   if (action === 'delete-comment')      deleteComment(commentId);
 
-  if (action === 'nut-prev-day')        { shiftNutDate(-1); resetNutPanels(); renderNutritionBody(); }
-  if (action === 'nut-next-day')        { shiftNutDate(1);  resetNutPanels(); renderNutritionBody(); }
-  if (action === 'nut-open-add')        { resetNutPanels(); addFoodOpen = true; renderNutritionBody(); focusFoodSearch(); }
+  if (action === 'nut-prev-day')        { shiftNutDate(-1); resetNutPanels(); logCopyMsg = ''; renderNutritionBody(); }
+  if (action === 'nut-next-day')        { shiftNutDate(1);  resetNutPanels(); logCopyMsg = ''; renderNutritionBody(); }
+  if (action === 'nut-open-add')        { resetNutPanels(); addFoodOpen = true; logCopyMsg = ''; renderNutritionBody(); focusFoodSearch(); }
+  if (action === 'nut-copy-yesterday')  copyYesterday();
   if (action === 'nut-cancel-add')      { resetNutPanels(); renderNutritionBody(); }
   if (action === 'nut-pick-food')       { pendingLogFoodId = foodId; renderNutritionBody(); }
   if (action === 'nut-back-to-search')  { pendingLogFoodId = null; renderNutritionBody(); focusFoodSearch(); }

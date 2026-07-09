@@ -1329,6 +1329,37 @@ h1 {
 .food-row-detail { color: var(--text-3); font-size: 11px; margin-top: 1px; }
 .food-row-stats  { color: var(--text-2); font-size: 11px; white-space: nowrap; }
 
+.log-actions { display: flex; }
+.log-actions .log-add { flex: 1; }
+.log-actions .log-copy { border-left: 1px solid var(--border); flex: 0 0 auto; }
+.log-copy-msg {
+  font-size: 12px;
+  color: var(--text-3);
+  padding: 0 13px 10px;
+}
+
+.recent-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 2px;
+}
+.recent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  border: 1px solid var(--border-2);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.recent-chip:hover { border-color: var(--border-3); background: var(--surface-2); }
+.recent-chip .food-icon { width: 14px; height: 14px; margin-right: 0; vertical-align: 0; }
+
 .log-add {
   margin: 0;
   border: none;
