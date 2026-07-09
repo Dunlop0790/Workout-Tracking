@@ -2073,6 +2073,30 @@ document.getElementById('panel-trash').addEventListener('keydown', e => {
 });
 
 // ─────────────────────────────────────────────
+// Theme
+// Per-device preference in localStorage; first visit follows the
+// system setting.
+// ─────────────────────────────────────────────
+
+function updateThemeToggleLabel() {
+  const btn = document.getElementById('themeToggle');
+  if (btn) btn.textContent = document.documentElement.dataset.theme === 'dark' ? 'Light mode' : 'Dark mode';
+}
+
+const savedTheme = localStorage.getItem('wc-theme');
+const startDark = savedTheme ? savedTheme === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+if (startDark) document.documentElement.dataset.theme = 'dark';
+updateThemeToggleLabel();
+
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const nowDark = document.documentElement.dataset.theme !== 'dark';
+  if (nowDark) document.documentElement.dataset.theme = 'dark';
+  else delete document.documentElement.dataset.theme;
+  localStorage.setItem('wc-theme', nowDark ? 'dark' : 'light');
+  updateThemeToggleLabel();
+});
+
+// ─────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────
 

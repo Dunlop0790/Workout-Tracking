@@ -1,4 +1,6 @@
 :root {
+  color-scheme: light;
+  --border-3:     rgba(0,0,0,0.3);
   --bg:           #f4f4f2;
   --surface:      #ffffff;
   --surface-2:    #eeeeec;
@@ -21,6 +23,57 @@
   --shadow:       0 1px 4px rgba(0,0,0,0.07);
   --shadow-md:    0 2px 8px rgba(0,0,0,0.09);
 }
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --border-3:     rgba(255,255,255,0.35);
+  --bg:           #141414;
+  --surface:      #1e1e1e;
+  --surface-2:    #2a2a2a;
+  --text:         #f2f2f0;
+  --text-2:       #a3a3a0;
+  --text-3:       #6f6f6c;
+  --border:       rgba(255,255,255,0.09);
+  --border-2:     rgba(255,255,255,0.22);
+  --green:        #4ade80;
+  --green-light:  #4ade80;
+  --green-bg:     rgba(34,197,94,0.10);
+  --green-border: rgba(74,222,128,0.28);
+  --gold:         #eab308;
+  --silver:       #a1a1aa;
+  --bronze:       #d97706;
+  --red:          #f87171;
+  --accent:       #f2f2f0;
+  --shadow:       0 1px 4px rgba(0,0,0,0.45);
+  --shadow-md:    0 2px 8px rgba(0,0,0,0.55);
+}
+
+/* Amber-tinted accents that were hardcoded for light mode */
+[data-theme="dark"] .streak-badge,
+[data-theme="dark"] .pr-badge {
+  background: rgba(234,179,8,0.14);
+  border-color: rgba(234,179,8,0.4);
+}
+[data-theme="dark"] .cool-badge,
+[data-theme="dark"] .nudge {
+  background: rgba(234,88,12,0.12);
+  border-color: rgba(234,88,12,0.4);
+}
+[data-theme="dark"] .cool-badge,
+[data-theme="dark"] .nudge-label,
+[data-theme="dark"] .nudge-names,
+[data-theme="dark"] .check-btn.extra,
+[data-theme="dark"] .check-btn.extra.checked {
+  color: #fdba74;
+}
+[data-theme="dark"] .check-btn.extra,
+[data-theme="dark"] .check-btn.extra.checked {
+  border-color: rgba(251,146,60,0.5);
+  background: rgba(234,88,12,0.12);
+}
+[data-theme="dark"] .add-submit:hover { background: #333330; }
+[data-theme="dark"] .mvp-stat-names strong,
+[data-theme="dark"] .recap-card { color: inherit; }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -267,7 +320,7 @@ h1 {
 }
 
 .check-btn:hover:not(.checked) {
-  border-color: rgba(0,0,0,0.3);
+  border-color: var(--border-3);
   background: var(--surface-2);
 }
 
@@ -408,7 +461,7 @@ h1 {
 
 .add-trigger:hover {
   color: var(--text-2);
-  border-color: rgba(0,0,0,0.28);
+  border-color: var(--border-3);
 }
 
 /* =========================
@@ -492,7 +545,7 @@ h1 {
   transition: width 0.4s ease;
 }
 
-.lb-row:first-child .lb-bar-fill { background: #1a1a1a; }
+.lb-row:first-child .lb-bar-fill { background: var(--text); }
 
 /* Top of leaderboard glow */
 .lb-row:first-child {
@@ -707,7 +760,7 @@ h1 {
 
 .lift-log-btn:hover {
   color: var(--text);
-  border-color: rgba(0,0,0,0.28);
+  border-color: var(--border-3);
 }
 
 .lift-log-form {
@@ -743,7 +796,7 @@ h1 {
   border: 1px solid var(--border-2);
   border-radius: 6px;
   background: var(--text);
-  color: #fff;
+  color: var(--bg);
   font-size: 13px;
   font-weight: 500;
   font-family: inherit;
@@ -1007,7 +1060,7 @@ h1 {
 .trash-post-btn {
   padding: 7px 18px;
   background: var(--text);
-  color: #fff;
+  color: var(--bg);
   border: none;
   border-radius: var(--radius-sm);
   font-size: 13px;
@@ -1424,6 +1477,20 @@ h1 {
 }
 .food-group-select { width: 100%; }
 
+.theme-toggle {
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--text-2);
+  background: transparent;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  padding: 5px 12px;
+  cursor: pointer;
+  width: fit-content;
+  margin: 12px 0 4px;
+}
+.theme-toggle:hover { color: var(--text); }
+
 .db-controls {
   display: flex;
   gap: 6px;
@@ -1483,6 +1550,8 @@ h1 {
     border-left-color: var(--text);
     background: var(--surface-2);
   }
+
+  .theme-toggle { margin-top: auto; }
 
   #content {
     flex: 1;
