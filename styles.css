@@ -1817,3 +1817,165 @@ h1 {
   background: rgba(43,48,34,0.08);
 }
 [data-theme="dmg"] .add-submit:hover { background: #a2a980; }
+
+/* =========================
+   Terminal theme (Konami-locked): green phosphor, VT323, scanlines
+   ========================= */
+[data-theme="terminal"] {
+  color-scheme: dark;
+  --bg:       #050a05;
+  --surface:  #0a120a;
+  --surface-2:#101c10;
+  --text:     #33ff66;
+  --text-2:   #23b34a;
+  --text-3:   #147031;
+  --border:   rgba(51,255,102,0.2);
+  --border-2: rgba(51,255,102,0.4);
+  --border-3: rgba(51,255,102,0.6);
+  --green:        #33ff66;
+  --green-light:  #33ff66;
+  --green-bg:     rgba(51,255,102,0.08);
+  --green-border: rgba(51,255,102,0.4);
+  --gold:   #33ff66;
+  --silver: #23b34a;
+  --bronze: #23b34a;
+  --red:    #33ff66;
+  --accent: #33ff66;
+  --radius:   3px;
+  --radius-sm:2px;
+  --shadow:   none;
+  --shadow-md:none;
+}
+[data-theme="terminal"] body {
+  font-family: 'VT323', monospace;
+  font-size: 17px;
+  text-shadow: 0 0 4px rgba(51,255,102,0.4);
+}
+[data-theme="terminal"] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9989;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,0.22) 0 1px, transparent 1px 3px);
+}
+[data-theme="terminal"] h1 { font-size: 30px; letter-spacing: 0; }
+[data-theme="terminal"] .news-ticker { background: #020502; border-color: rgba(51,255,102,0.3); }
+[data-theme="terminal"] .news-ticker-inner {
+  font-family: 'VT323', monospace;
+  font-size: 17px;
+  color: #33ff66;
+  text-shadow: 0 0 6px rgba(51,255,102,0.6);
+}
+[data-theme="terminal"] .type-pill { --type-color: #33ff66; }
+[data-theme="terminal"] .streak-badge,
+[data-theme="terminal"] .pr-badge,
+[data-theme="terminal"] .cool-badge,
+[data-theme="terminal"] .nudge {
+  background: rgba(51,255,102,0.08);
+  border-color: rgba(51,255,102,0.4);
+}
+[data-theme="terminal"] .cool-badge,
+[data-theme="terminal"] .nudge-label,
+[data-theme="terminal"] .nudge-names,
+[data-theme="terminal"] .check-btn.extra,
+[data-theme="terminal"] .check-btn.extra.checked {
+  color: #33ff66;
+}
+[data-theme="terminal"] .check-btn.extra,
+[data-theme="terminal"] .check-btn.extra.checked {
+  border-color: rgba(51,255,102,0.4);
+  background: rgba(51,255,102,0.06);
+}
+[data-theme="terminal"] .add-submit:hover { background: #101c10; }
+
+/* Unlock flicker */
+html.crt-flicker body { animation: crt-flick 0.7s steps(3); }
+@keyframes crt-flick {
+  0%   { opacity: 1; filter: brightness(1); }
+  20%  { opacity: 0.3; filter: brightness(2.4); }
+  40%  { opacity: 1; filter: brightness(0.7); }
+  65%  { opacity: 0.5; filter: brightness(1.8); }
+  100% { opacity: 1; filter: brightness(1); }
+}
+
+/* =========================
+   Toasts
+   ========================= */
+.wc-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text);
+  color: var(--bg);
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-family: inherit;
+  z-index: 9995;
+  animation: toast-life 2.6s forwards;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.wc-toast-big {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  padding: 14px 26px;
+  bottom: 42%;
+}
+@keyframes toast-life {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  8%   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  85%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* =========================
+   Screensaver
+   ========================= */
+.saver {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  background: #000;
+  overflow: hidden;
+  cursor: none;
+}
+.dvd {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-family: 'Press Start 2P', monospace;
+  color: #ffb000;
+  text-align: center;
+  will-change: transform;
+  padding: 8px;
+}
+.dvd-title { font-size: 22px; line-height: 1.4; }
+.dvd-sub   { font-size: 9px; margin-top: 10px; opacity: 0.85; }
+.saver-crt::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,0.3) 0 1px, transparent 1px 3px);
+}
+.crt-frame {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.crt-slide {
+  font-family: 'VT323', monospace;
+  color: #33ff66;
+  font-size: 36px;
+  text-shadow: 0 0 10px rgba(51,255,102,0.6);
+  max-width: 80%;
+  text-align: center;
+  line-height: 1.4;
+  opacity: 0;
+  transition: opacity 0.8s;
+}
+.crt-slide.crt-show { opacity: 1; }

@@ -1097,10 +1097,21 @@ async function saveLiftEntry(liftName) {
   const reps   = parseInt(rEl?.value, 10);
   if (!weight || !reps || weight <= 0 || reps <= 0) return;
 
+  if (weight === 69 || weight === 420 || reps === 69) showToast('nice.');
+
   const existing  = entriesForMemberLift(currentStrengthMember, liftName);
   const new1RM    = epley1RM(weight, reps);
   const currentPR = existing.length > 0 ? Math.max(...existing.map(e => epley1RM(e.weight, e.reps))) : 0;
   const isNewPR   = new1RM > currentPR;
+
+  const BIG3 = ['Squat', 'Bench Press', 'Deadlift'];
+  if (BIG3.includes(liftName)) {
+    const bests = BIG3.map(n => best1RM(currentStrengthMember, n));
+    const beforeTotal = bests.every(v => v > 0) ? bests.reduce((a, b) => a + b, 0) : 0;
+    const afterBests = BIG3.map(n => n === liftName ? Math.max(best1RM(currentStrengthMember, n), new1RM) : best1RM(currentStrengthMember, n));
+    const afterTotal = afterBests.every(v => v > 0) ? afterBests.reduce((a, b) => a + b, 0) : 0;
+    if (afterTotal >= 1000 && beforeTotal < 1000) showToast('1000 LB CLUB', true);
+  }
 
   loggingLiftId = null;
   renderStrengthList();
@@ -1760,6 +1771,7 @@ async function logFood() {
     showFormError('logError', 'Enter an amount greater than zero.');
     return;
   }
+  if (qty === 69 || qty === 420) showToast('nice.');
   const logTime = document.getElementById('logTime')?.value;
   if (!logTime) {
     showFormError('logError', 'Enter a time.');
@@ -2355,10 +2367,16 @@ const THEMES = [
   { key: 'midnight', label: 'Midnight', attr: 'dark' },
   { key: 'wii',      label: 'Wii',      attr: 'wii' },
   { key: 'dmg',      label: 'Game Boy', attr: 'dmg' },
+  { key: 'terminal', label: 'Terminal', attr: 'terminal', locked: true },
 ];
 
+function terminalUnlocked() {
+  return localStorage.getItem('wc-terminal-unlocked') === '1';
+}
+
 function applyTheme(key) {
-  const t = THEMES.find(x => x.key === key) || THEMES[0];
+  let t = THEMES.find(x => x.key === key) || THEMES[0];
+  if (t.locked && !terminalUnlocked()) t = THEMES[0];
   if (t.attr) document.documentElement.dataset.theme = t.attr;
   else delete document.documentElement.dataset.theme;
   const sel = document.getElementById('themePicker');
@@ -2367,7 +2385,9 @@ function applyTheme(key) {
 
 function populateThemePicker() {
   const sel = document.getElementById('themePicker');
-  sel.innerHTML = THEMES.map(t => `<option value="${t.key}">${t.label}</option>`).join('');
+  sel.innerHTML = THEMES
+    .filter(t => !t.locked || terminalUnlocked())
+    .map(t => `<option value="${t.key}">${t.label}</option>`).join('');
 }
 
 // Legacy values from the old two-state toggle
@@ -2384,6 +2404,186 @@ document.getElementById('themePicker').addEventListener('change', e => {
   applyTheme(e.target.value);
   localStorage.setItem('wc-theme', e.target.value);
 });
+
+// ─────────────────────────────────────────────
+// Toasts
+// ─────────────────────────────────────────────
+
+function showToast(text, big) {
+  const el = document.createElement('div');
+  el.className = 'wc-toast' + (big ? ' wc-toast-big' : '');
+  el.textContent = text;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2600);
+}
+
+// ─────────────────────────────────────────────
+// Konami code: unlocks the Terminal theme
+// ─────────────────────────────────────────────
+
+const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+let konamiPos = 0;
+
+document.addEventListener('keydown', e => {
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+  const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (k === KONAMI[konamiPos]) konamiPos++;
+  else konamiPos = (k === KONAMI[0]) ? 1 : 0;
+  if (konamiPos === KONAMI.length) {
+    konamiPos = 0;
+    unlockTerminal();
+  }
+});
+
+// Mobile unlock: ten quick taps on the title
+let titleTaps = 0;
+let titleTapTimer = null;
+document.querySelector('#sidenav h1').addEventListener('click', () => {
+  titleTaps++;
+  clearTimeout(titleTapTimer);
+  titleTapTimer = setTimeout(() => { titleTaps = 0; }, 2500);
+  if (titleTaps >= 10) { titleTaps = 0; unlockTerminal(); }
+});
+
+function unlockTerminal() {
+  const first = !terminalUnlocked();
+  localStorage.setItem('wc-terminal-unlocked', '1');
+  populateThemePicker();
+  applyTheme('terminal');
+  localStorage.setItem('wc-theme', 'terminal');
+  document.documentElement.classList.add('crt-flicker');
+  setTimeout(() => document.documentElement.classList.remove('crt-flicker'), 700);
+  showToast(first ? 'TERMINAL UNLOCKED' : 'TERMINAL', true);
+}
+
+// ─────────────────────────────────────────────
+// Idle screensaver: DVD bounce and CRT stat cycle, alternating
+// per idle session. Any input dismisses it.
+// ─────────────────────────────────────────────
+
+const SAVER_DELAY = 180000;
+let saverTimer = null;
+let saverActive = false;
+let saverRAF = null;
+let saverInterval = null;
+
+function resetSaverTimer() {
+  if (saverActive) dismissSaver();
+  clearTimeout(saverTimer);
+  saverTimer = setTimeout(startSaver, SAVER_DELAY);
+}
+
+['pointermove', 'pointerdown', 'keydown', 'scroll', 'touchstart'].forEach(ev =>
+  document.addEventListener(ev, resetSaverTimer, { passive: true })
+);
+
+function startSaver() {
+  if (document.getElementById('jumpscare-overlay')) { resetSaverTimer(); return; }
+  saverActive = true;
+  const mode = localStorage.getItem('wc-saver-mode') === 'dvd' ? 'crt' : 'dvd';
+  localStorage.setItem('wc-saver-mode', mode);
+  const ov = document.createElement('div');
+  ov.id = 'screensaver';
+  ov.className = 'saver saver-' + mode;
+  document.body.appendChild(ov);
+  if (mode === 'dvd') startDvdSaver(ov);
+  else startCrtSaver(ov);
+}
+
+function dismissSaver() {
+  const ov = document.getElementById('screensaver');
+  if (ov) ov.remove();
+  if (saverRAF) cancelAnimationFrame(saverRAF);
+  if (saverInterval) clearInterval(saverInterval);
+  saverRAF = null;
+  saverInterval = null;
+  saverActive = false;
+}
+
+function startDvdSaver(ov) {
+  const cw = getMonday();
+  const counts = members
+    .map(m => ({ m, count: workouts.filter(w => w.member_id === m.id && w.week_start === cw).length }))
+    .filter(x => x.count > 0);
+  let sub = '';
+  if (counts.length > 0) {
+    const max = Math.max(...counts.map(x => x.count));
+    const names = counts.filter(x => x.count === max).map(x => x.m.name).join(', ');
+    sub = `Leader: ${names}`;
+  }
+  ov.innerHTML = `
+    <div class="dvd">
+      <div class="dvd-title">WORKOUT CLUB</div>
+      ${sub ? `<div class="dvd-sub">${esc(sub)}</div>` : ''}
+    </div>`;
+  const box = ov.firstElementChild;
+  const colors = ['#ffb000', '#33ff66', '#54c2ef', '#ff5f8f', '#c084fc', '#f4f4f2'];
+  let x = 40, y = 40, dx = 2.2, dy = 1.7, ci = 0;
+  const step = () => {
+    const W = ov.clientWidth, H = ov.clientHeight;
+    const bw = box.offsetWidth, bh = box.offsetHeight;
+    x += dx; y += dy;
+    let hit = false;
+    if (x <= 0 || x + bw >= W) { dx = -dx; hit = true; x = Math.max(0, Math.min(x, W - bw)); }
+    if (y <= 0 || y + bh >= H) { dy = -dy; hit = true; y = Math.max(0, Math.min(y, H - bh)); }
+    if (hit) { ci = (ci + 1) % colors.length; box.style.color = colors[ci]; }
+    box.style.transform = `translate(${x}px, ${y}px)`;
+    saverRAF = requestAnimationFrame(step);
+  };
+  saverRAF = requestAnimationFrame(step);
+}
+
+function buildSaverSlides() {
+  const cw = getMonday();
+  const slides = [];
+  const hit = members.filter(m =>
+    workouts.filter(w => w.member_id === m.id && w.week_start === cw).length >= 3
+  ).length;
+  if (members.length > 0) slides.push(`${hit}/${members.length} hit goal this week`);
+
+  const counts = members
+    .map(m => ({ m, count: workouts.filter(w => w.member_id === m.id && w.week_start === cw).length }))
+    .filter(x => x.count > 0)
+    .sort((a, b) => b.count - a.count);
+  if (counts.length > 0) slides.push(`Leading this week: ${esc(counts[0].m.name)} (${counts[0].count})`);
+
+  const streaks = members
+    .map(m => ({ m, s: calcStreak(m.id, workouts) }))
+    .sort((a, b) => b.s - a.s);
+  if (streaks.length > 0 && streaks[0].s > 0) slides.push(`Longest streak: ${esc(streaks[0].m.name)}, ${streaks[0].s} weeks`);
+
+  const inMembers = members.filter(m => m.records_opt_in);
+  DEFAULT_LIFTS.forEach(name => {
+    let best = 0, holder = null;
+    inMembers.forEach(m => {
+      const v = best1RM(m.id, name);
+      if (v > best) { best = v; holder = m; }
+    });
+    if (holder) slides.push(`Club ${esc(name)}: ${Math.round(best)} lb, ${esc(holder.name)}`);
+  });
+
+  slides.push(`${workouts.length} sessions logged all time`);
+  return slides;
+}
+
+function startCrtSaver(ov) {
+  const slides = buildSaverSlides();
+  let idx = 0;
+  ov.innerHTML = `<div class="crt-frame"><div class="crt-slide" id="crtSlide"></div></div>`;
+  const slideEl = ov.querySelector('#crtSlide');
+  const show = () => {
+    slideEl.classList.remove('crt-show');
+    void slideEl.offsetWidth;
+    slideEl.innerHTML = slides[idx % slides.length];
+    slideEl.classList.add('crt-show');
+    idx++;
+  };
+  show();
+  saverInterval = setInterval(show, 5000);
+}
+
+resetSaverTimer();
 
 // ─────────────────────────────────────────────
 // Init
