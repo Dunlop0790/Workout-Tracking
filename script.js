@@ -2350,22 +2350,39 @@ document.getElementById('panel-trash').addEventListener('keydown', e => {
 // system setting.
 // ─────────────────────────────────────────────
 
-function updateThemeToggleLabel() {
-  const btn = document.getElementById('themeToggle');
-  if (btn) btn.textContent = document.documentElement.dataset.theme === 'dark' ? 'Light mode' : 'Dark mode';
+const THEMES = [
+  { key: 'paper',    label: 'Paper',    attr: null },
+  { key: 'midnight', label: 'Midnight', attr: 'dark' },
+  { key: 'wii',      label: 'Wii',      attr: 'wii' },
+  { key: 'dmg',      label: 'Game Boy', attr: 'dmg' },
+];
+
+function applyTheme(key) {
+  const t = THEMES.find(x => x.key === key) || THEMES[0];
+  if (t.attr) document.documentElement.dataset.theme = t.attr;
+  else delete document.documentElement.dataset.theme;
+  const sel = document.getElementById('themePicker');
+  if (sel) sel.value = t.key;
 }
 
-const savedTheme = localStorage.getItem('wc-theme');
-const startDark = savedTheme ? savedTheme === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
-if (startDark) document.documentElement.dataset.theme = 'dark';
-updateThemeToggleLabel();
+function populateThemePicker() {
+  const sel = document.getElementById('themePicker');
+  sel.innerHTML = THEMES.map(t => `<option value="${t.key}">${t.label}</option>`).join('');
+}
 
-document.getElementById('themeToggle').addEventListener('click', () => {
-  const nowDark = document.documentElement.dataset.theme !== 'dark';
-  if (nowDark) document.documentElement.dataset.theme = 'dark';
-  else delete document.documentElement.dataset.theme;
-  localStorage.setItem('wc-theme', nowDark ? 'dark' : 'light');
-  updateThemeToggleLabel();
+// Legacy values from the old two-state toggle
+const legacyThemeMap = { light: 'paper', dark: 'midnight' };
+const savedThemeRaw = localStorage.getItem('wc-theme');
+const savedTheme = legacyThemeMap[savedThemeRaw] || savedThemeRaw;
+const startTheme = savedTheme && THEMES.some(t => t.key === savedTheme)
+  ? savedTheme
+  : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'midnight' : 'paper');
+populateThemePicker();
+applyTheme(startTheme);
+
+document.getElementById('themePicker').addEventListener('change', e => {
+  applyTheme(e.target.value);
+  localStorage.setItem('wc-theme', e.target.value);
 });
 
 // ─────────────────────────────────────────────

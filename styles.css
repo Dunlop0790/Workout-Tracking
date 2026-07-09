@@ -48,6 +48,119 @@
   --shadow-md:    0 2px 8px rgba(0,0,0,0.55);
 }
 
+/* =========================
+   Wii theme: channel-menu gloss, bubbly radii, gentle hover pop
+   ========================= */
+[data-theme="wii"] {
+  color-scheme: light;
+  --bg:       #e6ebee;
+  --surface:  #fbfdfe;
+  --surface-2:#edf2f5;
+  --text:     #3d474c;
+  --text-2:   #7b878d;
+  --text-3:   #aab6bc;
+  --border:   rgba(60,90,110,0.14);
+  --border-2: rgba(60,90,110,0.3);
+  --border-3: rgba(60,90,110,0.45);
+  --accent:   #27b1e6;
+  --radius:   18px;
+  --radius-sm:12px;
+  --shadow:   0 2px 6px rgba(90,120,140,0.16);
+  --shadow-md:0 5px 14px rgba(90,120,140,0.22);
+}
+[data-theme="wii"] body {
+  background: linear-gradient(180deg, #eef2f4 0%, #e2e9ed 55%, #d8e1e6 100%);
+  background-attachment: fixed;
+}
+[data-theme="wii"] .member-row,
+[data-theme="wii"] .lift-card,
+[data-theme="wii"] .log-card,
+[data-theme="wii"] .lb-row,
+[data-theme="wii"] .hof-card,
+[data-theme="wii"] .nut-totals,
+[data-theme="wii"] .recap-card,
+[data-theme="wii"] .comment-card,
+[data-theme="wii"] .trash-compose-card {
+  background-image: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0) 55%);
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+[data-theme="wii"] .member-row:hover,
+[data-theme="wii"] .lift-card:hover,
+[data-theme="wii"] .lb-row:hover,
+[data-theme="wii"] .hof-card:hover,
+[data-theme="wii"] .comment-card:hover {
+  transform: scale(1.012);
+  box-shadow: var(--shadow-md);
+}
+[data-theme="wii"] .tab-btn { transition: transform 0.14s ease, color 0.12s, border-color 0.12s; }
+[data-theme="wii"] .tab-btn:hover { transform: scale(1.04); }
+[data-theme="wii"] .tab-btn.active { border-left-color: var(--accent); border-bottom-color: var(--accent); }
+[data-theme="wii"] .lb-bar-fill { background: var(--accent); }
+[data-theme="wii"] .lb-row:first-child .lb-bar-fill { background: var(--accent); }
+
+/* =========================
+   Game Boy (DMG) theme: four shades of olive, blocky corners
+   ========================= */
+[data-theme="dmg"] {
+  color-scheme: light;
+  --bg:       #9bbc0f;
+  --surface:  #8bac0f;
+  --surface-2:#7f9e0e;
+  --text:     #0f380f;
+  --text-2:   #306230;
+  --text-3:   rgba(15,56,15,0.55);
+  --border:   rgba(15,56,15,0.3);
+  --border-2: rgba(15,56,15,0.5);
+  --border-3: rgba(15,56,15,0.65);
+  --green:        #0f380f;
+  --green-light:  #0f380f;
+  --green-bg:     rgba(15,56,15,0.12);
+  --green-border: rgba(15,56,15,0.5);
+  --gold:   #0f380f;
+  --silver: #306230;
+  --bronze: #306230;
+  --red:    #0f380f;
+  --accent: #0f380f;
+  --radius:   4px;
+  --radius-sm:3px;
+  --shadow:   none;
+  --shadow-md:none;
+}
+[data-theme="dmg"] h1,
+[data-theme="dmg"] .section-header,
+[data-theme="dmg"] .stat-num {
+  font-family: 'Press Start 2P', monospace;
+}
+[data-theme="dmg"] h1 { font-size: 15px; letter-spacing: 0; line-height: 1.5; }
+[data-theme="dmg"] .stat-num { font-size: 14px; }
+[data-theme="dmg"] .section-header { font-size: 9px; }
+[data-theme="dmg"] .news-ticker { background: #0f380f; border-color: #0f380f; }
+[data-theme="dmg"] .news-ticker-inner { color: #9bbc0f; text-shadow: none; }
+[data-theme="dmg"] .type-pill { --type-color: #0f380f; }
+[data-theme="dmg"] .streak-badge,
+[data-theme="dmg"] .pr-badge {
+  background: rgba(15,56,15,0.12);
+  border-color: rgba(15,56,15,0.5);
+}
+[data-theme="dmg"] .cool-badge,
+[data-theme="dmg"] .nudge {
+  background: rgba(15,56,15,0.10);
+  border-color: rgba(15,56,15,0.45);
+}
+[data-theme="dmg"] .cool-badge,
+[data-theme="dmg"] .nudge-label,
+[data-theme="dmg"] .nudge-names,
+[data-theme="dmg"] .check-btn.extra,
+[data-theme="dmg"] .check-btn.extra.checked {
+  color: #0f380f;
+}
+[data-theme="dmg"] .check-btn.extra,
+[data-theme="dmg"] .check-btn.extra.checked {
+  border-color: rgba(15,56,15,0.5);
+  background: rgba(15,56,15,0.08);
+}
+[data-theme="dmg"] .add-submit:hover { background: #7f9e0e; }
+
 /* Amber-tinted accents that were hardcoded for light mode */
 [data-theme="dark"] .streak-badge,
 [data-theme="dark"] .pr-badge {
