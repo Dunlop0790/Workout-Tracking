@@ -26,15 +26,15 @@
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --border-3:     rgba(255,255,255,0.35);
-  --bg:           #141414;
-  --surface:      #1e1e1e;
-  --surface-2:    #2a2a2a;
-  --text:         #f2f2f0;
-  --text-2:       #a3a3a0;
-  --text-3:       #6f6f6c;
-  --border:       rgba(255,255,255,0.09);
-  --border-2:     rgba(255,255,255,0.22);
+  --border-3:     rgba(170,160,255,0.4);
+  --bg:           #0b0b13;
+  --surface:      #131320;
+  --surface-2:    #1b1b2c;
+  --text:         #eeeefa;
+  --text-2:       #9d9db4;
+  --text-3:       #63637a;
+  --border:       rgba(160,150,255,0.11);
+  --border-2:     rgba(160,150,255,0.26);
   --green:        #4ade80;
   --green-light:  #4ade80;
   --green-bg:     rgba(34,197,94,0.10);
@@ -1995,3 +1995,81 @@ html.crt-flicker body { animation: crt-flick 0.7s steps(3); }
   box-shadow: 0 0 10px rgba(74,222,128,0.18);
 }
 [data-theme="dark"] .pr-badge { box-shadow: 0 0 10px rgba(234,179,8,0.4); }
+
+/* City-sky background: signage glow bleeding in from the edges */
+[data-theme="dark"] body {
+  background:
+    radial-gradient(ellipse 70% 45% at 85% 108%, rgba(255,79,216,0.14), transparent 60%),
+    radial-gradient(ellipse 65% 40% at 8% -8%, rgba(53,224,255,0.10), transparent 60%),
+    radial-gradient(ellipse 45% 35% at 45% 115%, rgba(130,80,255,0.12), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+/* Katakana neon subtitle under the brand */
+[data-theme="dark"] #sidenav h1::after {
+  content: '\30EF\30FC\30AF\30A2\30A6\30C8\30AF\30E9\30D6';
+  display: block;
+  font-family: 'M PLUS Rounded 1c', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 4px;
+  color: var(--neon-2);
+  text-shadow: 0 0 8px rgba(255,79,216,0.8), 0 0 20px rgba(255,79,216,0.35);
+  margin-top: 5px;
+}
+
+/* The billboard becomes a pink neon sign */
+[data-theme="dark"] .news-ticker {
+  background: #160722;
+  border-color: rgba(255,79,216,0.4);
+  box-shadow: inset 0 0 22px rgba(255,79,216,0.12), 0 0 14px rgba(255,79,216,0.15);
+}
+[data-theme="dark"] .news-ticker-inner {
+  color: #ff5fd8;
+  text-shadow: 0 0 6px rgba(255,79,216,0.9), 0 0 20px rgba(255,79,216,0.45);
+}
+
+/* Progress fills run cyan to magenta */
+[data-theme="dark"] .lb-bar-fill {
+  background: linear-gradient(90deg, #35e0ff, #a06bff 55%, #ff4fd8);
+  box-shadow: 0 0 6px rgba(120,140,255,0.7), 0 0 14px rgba(255,79,216,0.35);
+}
+[data-theme="dark"] .lb-row:first-child .lb-bar-fill {
+  background: linear-gradient(90deg, #ff4fd8, #ffe14d);
+  box-shadow: 0 0 6px rgba(255,79,216,0.8), 0 0 16px rgba(255,200,80,0.4);
+}
+
+/* Neon gradient primary buttons */
+[data-theme="dark"] .lift-save,
+[data-theme="dark"] .trash-post-btn,
+[data-theme="dark"] .add-submit {
+  background: linear-gradient(90deg, #35e0ff, #ff4fd8);
+  color: #0b0b13;
+  font-weight: 600;
+}
+[data-theme="dark"] .lift-save:hover,
+[data-theme="dark"] .trash-post-btn:hover,
+[data-theme="dark"] .add-submit:hover {
+  opacity: 1;
+  box-shadow: 0 0 12px rgba(53,224,255,0.5), 0 0 12px rgba(255,79,216,0.5);
+}
+
+/* Section headers get the neon underline */
+[data-theme="dark"] .section-header {
+  border-bottom-color: rgba(53,224,255,0.35);
+  text-shadow: 0 0 8px rgba(53,224,255,0.25);
+}
+
+/* Cards catch a violet edge on hover */
+[data-theme="dark"] .member-row:hover,
+[data-theme="dark"] .lift-card:hover,
+[data-theme="dark"] .lb-row:hover,
+[data-theme="dark"] .comment-card:hover {
+  border-color: rgba(160,150,255,0.4);
+}
+
+[data-theme="dark"] ::selection {
+  background: rgba(255,79,216,0.4);
+  color: #fff;
+}
