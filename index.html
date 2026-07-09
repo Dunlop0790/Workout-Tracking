@@ -88,12 +88,21 @@
 
   <!-- Strength -->
   <section class="panel" id="panel-strength">
-    <div class="strength-picker-row">
-      <label for="strengthPicker" class="strength-picker-label">Viewing</label>
-      <select id="strengthPicker" class="strength-picker"></select>
+    <div class="split-layout">
+      <div class="split-main">
+        <div class="strength-picker-row">
+          <label for="strengthPicker" class="strength-picker-label">Viewing</label>
+          <select id="strengthPicker" class="strength-picker"></select>
+        </div>
+        <div id="records-optin-area"></div>
+        <div id="strength-list"></div>
+        <div id="strength-add-area"></div>
+      </div>
+      <aside class="split-side">
+        <div class="section-header">Club Records</div>
+        <div id="club-records"></div>
+      </aside>
     </div>
-    <div id="strength-list"></div>
-    <div id="strength-add-area"></div>
   </section>
 
   <!-- Nutrition -->

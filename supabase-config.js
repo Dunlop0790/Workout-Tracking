@@ -162,6 +162,9 @@ alter table foods add column if not exists sodium numeric;
 alter table foods add column if not exists fiber  numeric;
 alter table foods add column if not exists sugar  numeric;
 
+-- Club Records opt-in (per member)
+alter table members add column if not exists records_opt_in boolean not null default false;
+
 -- To post news:
 --   insert into news (content, ts)
 --   values ('New: Nutrition tab is live', (extract(epoch from now()) * 1000)::bigint);

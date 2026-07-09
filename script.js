@@ -200,6 +200,30 @@ function foodCalDisplay(f) {
   return `${Math.round(f.calories)} cal / 100g`;
 }
 
+function best1RM(memberId, liftName) {
+  return liftEntries
+    .filter(e => e.member_id === memberId && e.lift_name === liftName)
+    .reduce((best, e) => Math.max(best, epley1RM(e.weight, e.reps)), 0);
+}
+
+function sparklineSVG(vals) {
+  const n = vals.length;
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+  const range = max - min || 1;
+  const pts = vals.map((v, i) => {
+    const x = n === 1 ? 50 : (i / (n - 1)) * 100;
+    const y = 25 - ((v - min) / range) * 20;
+    return [round2(x), round2(y)];
+  });
+  const last = pts[pts.length - 1];
+  return `
+    <svg class="lift-spark" viewBox="0 0 100 28" preserveAspectRatio="none" aria-hidden="true">
+      <polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${last[0]}" cy="${last[1]}" r="2" fill="currentColor" vector-effect="non-scaling-stroke"/>
+    </svg>`;
+}
+
 function entriesForMemberLift(memberId, liftName) {
   return liftEntries
     .filter(e => e.member_id === memberId && e.lift_name === liftName)
@@ -788,8 +812,95 @@ function renderTrashFeed() {
 
 function renderStrength() {
   renderStrengthPicker();
+  renderRecordsOptIn();
   renderStrengthList();
   renderStrengthAddArea();
+  renderClubRecords();
+}
+
+function renderRecordsOptIn() {
+  const el = document.getElementById('records-optin-area');
+  if (!el) return;
+  const m = members.find(x => x.id === currentStrengthMember);
+  if (!m) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <label class="records-optin">
+      <input type="checkbox" id="recordsOptIn" ${m.records_opt_in ? 'checked' : ''}/>
+      Include ${esc(m.name)}'s lifts in Club Records
+    </label>`;
+}
+
+function renderClubRecords() {
+  const el = document.getElementById('club-records');
+  if (!el) return;
+  const inMembers = members.filter(m => m.records_opt_in);
+  if (inMembers.length === 0) {
+    el.innerHTML = `<p class="empty-msg">Nobody has opted in yet. Pick a member and tick the box under the picker to join.</p>`;
+    return;
+  }
+
+  const recordRow = (label, best, holder) => `
+    <div class="record-row">
+      <div>
+        <div class="record-lift">${esc(label)}</div>
+        <div class="record-holder">${holder ? esc(holder.name) : 'No entries yet'}</div>
+      </div>
+      <div class="record-val">${best > 0 ? Math.round(best) + '<span class="lift-unit">lb</span>' : '—'}</div>
+    </div>`;
+
+  const big4 = DEFAULT_LIFTS.map(name => {
+    let best = 0, holder = null;
+    inMembers.forEach(m => {
+      const v = best1RM(m.id, name);
+      if (v > best) { best = v; holder = m; }
+    });
+    return recordRow(name, best, holder);
+  }).join('');
+
+  // 1000 lb club: best squat + bench + deadlift, all three required
+  const totals = inMembers.map(m => {
+    const sq = best1RM(m.id, 'Squat');
+    const be = best1RM(m.id, 'Bench Press');
+    const de = best1RM(m.id, 'Deadlift');
+    return { m, total: sq + be + de, complete: sq > 0 && be > 0 && de > 0 };
+  }).filter(t => t.complete).sort((a, b) => b.total - a.total);
+  const qualifiers = totals.filter(t => t.total >= 1000);
+  let clubHTML;
+  if (qualifiers.length > 0) {
+    clubHTML = qualifiers.map(t => `
+      <div class="record-row">
+        <div class="record-lift">${esc(t.m.name)}</div>
+        <div class="record-val">${Math.round(t.total)}<span class="lift-unit">lb</span></div>
+      </div>`).join('');
+  } else if (totals.length > 0) {
+    const c = totals[0];
+    clubHTML = `<p class="club-note">No members yet. Closest: ${esc(c.m.name)} at ${Math.round(c.total)} lb.</p>`;
+  } else {
+    clubHTML = `<p class="club-note">Needs a squat, bench, and deadlift on record.</p>`;
+  }
+
+  // Misc bests: custom lifts across opted-in members
+  const inIds = new Set(inMembers.map(m => m.id));
+  const customNames = [...new Set(
+    liftEntries
+      .filter(e => inIds.has(e.member_id) && !DEFAULT_LIFTS.includes(e.lift_name))
+      .map(e => e.lift_name)
+  )].sort((a, b) => a.localeCompare(b));
+  const miscHTML = customNames.map(name => {
+    let best = 0, holder = null;
+    inMembers.forEach(m => {
+      const v = best1RM(m.id, name);
+      if (v > best) { best = v; holder = m; }
+    });
+    return recordRow(name, best, holder);
+  }).join('');
+
+  el.innerHTML = `
+    <p class="club-note">Estimated 1RMs (Epley), opted-in members only.</p>
+    ${big4}
+    <div class="serving-label">1000 lb Club</div>
+    ${clubHTML}
+    ${customNames.length > 0 ? `<div class="serving-label">Misc bests</div>${miscHTML}` : ''}`;
 }
 
 function renderStrengthPicker() {
@@ -889,6 +1000,9 @@ function liftCardHTML(liftName, memberId) {
     ? `<button class="lift-remove" data-action="remove-custom-lift" data-lift="${esc(liftName)}" aria-label="Remove">&#215;</button>`
     : '';
 
+  const series = [...entries].sort((a, b) => a.ts - b.ts).slice(-30).map(e => epley1RM(e.weight, e.reps));
+  const sparkHTML = series.length >= 2 ? sparklineSVG(series) : '';
+
   return `
     <div class="lift-card${isNewPR ? ' lift-card--pr' : ''}">
       <div class="lift-header">
@@ -900,6 +1014,7 @@ function liftCardHTML(liftName, memberId) {
         ${removeCustom}
       </div>
       <div class="lift-stats">${currentBlock}${prBlock}</div>
+      ${sparkHTML}
       ${percentHTML}
       ${formHTML}
       ${historyToggle}
@@ -2168,7 +2283,16 @@ document.getElementById('periodTabs').addEventListener('click', e => {
 document.getElementById('strengthPicker').addEventListener('change', e => {
   currentStrengthMember = e.target.value || null;
   loggingLiftId = null; expandedLiftId = null; showingLiftForm = false;
-  renderStrengthList(); renderStrengthAddArea();
+  renderRecordsOptIn(); renderStrengthList(); renderStrengthAddArea();
+});
+
+document.getElementById('panel-strength').addEventListener('change', e => {
+  if (e.target.id === 'recordsOptIn' && currentStrengthMember) {
+    const m = members.find(x => x.id === currentStrengthMember);
+    m.records_opt_in = e.target.checked;
+    db.from('members').update({ records_opt_in: e.target.checked }).eq('id', currentStrengthMember);
+    renderClubRecords();
+  }
 });
 
 document.getElementById('panel-leaderboard').addEventListener('change', e => {
