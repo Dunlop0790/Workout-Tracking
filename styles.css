@@ -548,22 +548,6 @@ h1 {
 
 .lb-row:first-child .lb-bar-fill { background: var(--text); }
 
-/* Top of leaderboard glow */
-.lb-row:first-child {
-  border-color: rgba(161, 98, 7, 0.35);
-  box-shadow: 0 0 0 1px rgba(161, 98, 7, 0.15), 0 0 18px rgba(234, 179, 8, 0.25);
-  animation: glow-pulse 2.4s ease-in-out infinite;
-}
-
-@keyframes glow-pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 1px rgba(161, 98, 7, 0.15), 0 0 14px rgba(234, 179, 8, 0.20);
-  }
-  50% {
-    box-shadow: 0 0 0 1px rgba(161, 98, 7, 0.25), 0 0 22px rgba(234, 179, 8, 0.40);
-  }
-}
-
 /* =========================
    Nudge banner
    ========================= */
@@ -1979,3 +1963,35 @@ html.crt-flicker body { animation: crt-flick 0.7s steps(3); }
   transition: opacity 0.8s;
 }
 .crt-slide.crt-show { opacity: 1; }
+
+/* =========================
+   Midnight neon: cyan/magenta glow on progress and accents
+   ========================= */
+[data-theme="dark"] {
+  --neon:   #35e0ff;
+  --neon-2: #ff4fd8;
+}
+[data-theme="dark"] .lb-bar-fill {
+  background: var(--neon);
+  box-shadow: 0 0 6px rgba(53,224,255,0.8), 0 0 14px rgba(53,224,255,0.45);
+}
+[data-theme="dark"] .lb-row:first-child .lb-bar-fill {
+  background: var(--neon-2);
+  box-shadow: 0 0 6px rgba(255,79,216,0.8), 0 0 14px rgba(255,79,216,0.45);
+}
+[data-theme="dark"] .lb-bar-track { background: rgba(255,255,255,0.06); }
+[data-theme="dark"] .lift-spark {
+  color: var(--neon);
+  filter: drop-shadow(0 0 4px rgba(53,224,255,0.7));
+}
+[data-theme="dark"] .tab-btn.active {
+  border-left-color: var(--neon);
+  border-bottom-color: var(--neon);
+  text-shadow: 0 0 10px rgba(53,224,255,0.5);
+}
+[data-theme="dark"] .stat-num { text-shadow: 0 0 12px rgba(53,224,255,0.35); }
+[data-theme="dark"] .streak-badge { box-shadow: 0 0 8px rgba(234,179,8,0.3); }
+[data-theme="dark"] .member-row.done {
+  box-shadow: 0 0 10px rgba(74,222,128,0.18);
+}
+[data-theme="dark"] .pr-badge { box-shadow: 0 0 10px rgba(234,179,8,0.4); }
