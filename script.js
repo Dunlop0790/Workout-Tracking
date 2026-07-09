@@ -156,6 +156,13 @@ function roundTo5(n) { return Math.round(n / 5) * 5; }
 
 function round2(n) { return Math.round(n * 100) / 100; }
 
+// Optional nutrient input: blank means unknown (null), never zero.
+function optNum(id) {
+  const v = document.getElementById(id)?.value.trim();
+  if (v === '' || v == null) return null;
+  return parseFloat(v);
+}
+
 // The serving a food was defined with (oldest). Nutrition entry and
 // display are per serving; storage stays per 100g.
 function primaryServing(foodId) {
@@ -1167,8 +1174,11 @@ function dbFoodFormHTML() {
   const f = editing
     ? { name: editing.name, brand: editing.brand, icon: editing.icon,
         calories: round2(editing.calories * k), protein: round2(editing.protein * k),
-        carbs: round2(editing.carbs * k), fat: round2(editing.fat * k) }
-    : { name: '', brand: '', icon: '', calories: '', protein: '', carbs: '', fat: '' };
+        carbs: round2(editing.carbs * k), fat: round2(editing.fat * k),
+        sodium: editing.sodium == null ? '' : round2(editing.sodium * k),
+        fiber:  editing.fiber  == null ? '' : round2(editing.fiber  * k),
+        sugar:  editing.sugar  == null ? '' : round2(editing.sugar  * k) }
+    : { name: '', brand: '', icon: '', calories: '', protein: '', carbs: '', fat: '', sodium: '', fiber: '', sugar: '' };
 
   return `
     <div class="log-food-header">
@@ -1199,6 +1209,12 @@ function dbFoodFormHTML() {
     <div class="goals-form-row">
       <input type="number" inputmode="decimal" id="dbCarb" class="lift-input" placeholder="Carbs g" value="${f.carbs}"/>
       <input type="number" inputmode="decimal" id="dbFat"  class="lift-input" placeholder="Fat g" value="${f.fat}"/>
+    </div>
+    <div class="serving-label">Optional, per serving</div>
+    <div class="goals-form-row">
+      <input type="number" inputmode="decimal" id="dbSodium" class="lift-input" placeholder="Sodium mg" value="${f.sodium}"/>
+      <input type="number" inputmode="decimal" id="dbFiber"  class="lift-input" placeholder="Fiber g" value="${f.fiber}"/>
+      <input type="number" inputmode="decimal" id="dbSugar"  class="lift-input" placeholder="Sugar g" value="${f.sugar}"/>
     </div>
     <div class="form-error" id="dbError"></div>
     <div class="goals-form-row">
@@ -1236,8 +1252,16 @@ function renderNutritionBody() {
     if (!food) return acc;
     const m = macrosFor(food, e.grams);
     acc.cal += m.cal; acc.pro += m.pro; acc.carb += m.carb; acc.fat += m.fat;
+    const g = e.grams / 100;
+    [['sodium', 'sod'], ['fiber', 'fib'], ['sugar', 'sug']].forEach(([col, key]) => {
+      if (food[col] == null) acc[key + 'Miss'] = true;
+      else { acc[key] += food[col] * g; acc[key + 'Has'] = true; }
+    });
     return acc;
-  }, { cal: 0, pro: 0, carb: 0, fat: 0 });
+  }, { cal: 0, pro: 0, carb: 0, fat: 0,
+       sod: 0, sodHas: false, sodMiss: false,
+       fib: 0, fibHas: false, fibMiss: false,
+       sug: 0, sugHas: false, sugMiss: false });
 
   body.innerHTML = `
     <div class="nut-daynav">
@@ -1251,6 +1275,19 @@ function renderNutritionBody() {
     </div>
     ${totalsCardHTML(totals, goals)}
     ${logCardHTML(entries, dayStart)}`;
+}
+
+function microLineHTML(t) {
+  const parts = [];
+  const part = (label, val, unit, has, miss) => {
+    if (!has) return;
+    parts.push(`${label} ${Math.round(val)}${unit}${miss ? ' <span class="micro-incomplete" title="Some logged foods are missing this value">incomplete</span>' : ''}`);
+  };
+  part('Fiber',  t.fib, ' g',  t.fibHas, t.fibMiss);
+  part('Sugar',  t.sug, ' g',  t.sugHas, t.sugMiss);
+  part('Sodium', t.sod, ' mg', t.sodHas, t.sodMiss);
+  if (parts.length === 0) return '';
+  return `<div class="micro-line">${parts.join(' · ')}</div>`;
 }
 
 function totalsCardHTML(totals, goals) {
@@ -1305,6 +1342,7 @@ function totalsCardHTML(totals, goals) {
       ${macroRow('Protein', totals.pro,  goals?.protein)}
       ${macroRow('Carbs',   totals.carb, goals?.carbs)}
       ${macroRow('Fat',     totals.fat,  goals?.fat)}
+      ${microLineHTML(totals)}
       ${goalsArea}
     </div>`;
 }
@@ -1422,8 +1460,11 @@ function foodFormHTML() {
   const f = editing
     ? { name: editing.name, brand: editing.brand, icon: editing.icon,
         calories: round2(editing.calories * k), protein: round2(editing.protein * k),
-        carbs: round2(editing.carbs * k), fat: round2(editing.fat * k) }
-    : { name: '', brand: '', icon: '', calories: '', protein: '', carbs: '', fat: '' };
+        carbs: round2(editing.carbs * k), fat: round2(editing.fat * k),
+        sodium: editing.sodium == null ? '' : round2(editing.sodium * k),
+        fiber:  editing.fiber  == null ? '' : round2(editing.fiber  * k),
+        sugar:  editing.sugar  == null ? '' : round2(editing.sugar  * k) }
+    : { name: '', brand: '', icon: '', calories: '', protein: '', carbs: '', fat: '', sodium: '', fiber: '', sugar: '' };
 
   return `
     <div class="food-add-panel">
@@ -1454,6 +1495,12 @@ function foodFormHTML() {
         <input type="number" inputmode="decimal" id="nfCarb" class="lift-input" placeholder="Carbs g" value="${f.carbs}"/>
         <input type="number" inputmode="decimal" id="nfFat"  class="lift-input" placeholder="Fat g" value="${f.fat}"/>
       </div>
+    <div class="serving-label">Optional, per serving</div>
+    <div class="goals-form-row">
+      <input type="number" inputmode="decimal" id="nfSodium" class="lift-input" placeholder="Sodium mg" value="${f.sodium}"/>
+      <input type="number" inputmode="decimal" id="nfFiber"  class="lift-input" placeholder="Fiber g" value="${f.fiber}"/>
+      <input type="number" inputmode="decimal" id="nfSugar"  class="lift-input" placeholder="Sugar g" value="${f.sugar}"/>
+    </div>
       <div class="form-error" id="nfError"></div>
       <div class="goals-form-row">
         <button class="lift-save" data-action="nut-save-food">${editing ? 'Save changes' : 'Add food'}</button>
@@ -1487,6 +1534,14 @@ async function saveFood() {
     return;
   }
 
+  const sod = optNum('nfSodium');
+  const fib = optNum('nfFiber');
+  const sug = optNum('nfSugar');
+  if ([sod, fib, sug].some(n => n !== null && (isNaN(n) || n < 0))) {
+    showFormError('nfError', 'Optional nutrition values must be numbers, zero or more.');
+    return;
+  }
+
   const icon = document.getElementById('nfIcon')?.value || null;
   const servLabel = document.getElementById('nfServLabel')?.value.trim();
   const servAmt   = parseFloat(document.getElementById('nfServAmt')?.value);
@@ -1509,6 +1564,9 @@ async function saveFood() {
       name, brand, icon,
       calories: round2(cal * k), protein: round2(pro * k),
       carbs: round2(carb * k), fat: round2(fat * k),
+      sodium: sod === null ? null : round2(sod * k),
+      fiber:  fib === null ? null : round2(fib * k),
+      sugar:  sug === null ? null : round2(sug * k),
     }).eq('id', id);
     if (servLabel && servGramsNew) {
       await db.from('food_servings').insert({ id: 's' + Date.now(), food_id: id, label: servLabel, grams: servGramsNew });
@@ -1530,6 +1588,9 @@ async function saveFood() {
     id, name, brand, icon,
     calories: round2(cal * k), protein: round2(pro * k),
     carbs: round2(carb * k), fat: round2(fat * k),
+    sodium: sod === null ? null : round2(sod * k),
+    fiber:  fib === null ? null : round2(fib * k),
+    sugar:  sug === null ? null : round2(sug * k),
   });
   await db.from('food_servings').insert({ id: 's' + Date.now(), food_id: id, label: servLabel, grams: servGramsNew });
 }
@@ -1749,6 +1810,14 @@ async function saveDbFood() {
     return;
   }
 
+  const sod = optNum('dbSodium');
+  const fib = optNum('dbFiber');
+  const sug = optNum('dbSugar');
+  if ([sod, fib, sug].some(n => n !== null && (isNaN(n) || n < 0))) {
+    showFormError('dbError', 'Optional nutrition values must be numbers, zero or more.');
+    return;
+  }
+
   const icon = document.getElementById('dbIcon')?.value || null;
   const servLabel = document.getElementById('dbServLabel')?.value.trim();
   const servAmt   = parseFloat(document.getElementById('dbServAmt')?.value);
@@ -1771,6 +1840,9 @@ async function saveDbFood() {
       name, brand, icon,
       calories: round2(cal * k), protein: round2(pro * k),
       carbs: round2(carb * k), fat: round2(fat * k),
+      sodium: sod === null ? null : round2(sod * k),
+      fiber:  fib === null ? null : round2(fib * k),
+      sugar:  sug === null ? null : round2(sug * k),
     }).eq('id', id);
     if (servLabel && servGramsNew) {
       await db.from('food_servings').insert({ id: 's' + Date.now(), food_id: id, label: servLabel, grams: servGramsNew });
@@ -1791,6 +1863,9 @@ async function saveDbFood() {
     id, name, brand, icon,
     calories: round2(cal * k), protein: round2(pro * k),
     carbs: round2(carb * k), fat: round2(fat * k),
+    sodium: sod === null ? null : round2(sod * k),
+    fiber:  fib === null ? null : round2(fib * k),
+    sugar:  sug === null ? null : round2(sug * k),
   });
   await db.from('food_servings').insert({ id: 's' + Date.now(), food_id: id, label: servLabel, grams: servGramsNew });
 }
@@ -1801,7 +1876,7 @@ function dbImportHTML() {
       <div class="food-result-name">Import foods</div>
       <div class="food-row-stats">One food per line, fields separated by tabs (paste straight from a spreadsheet)</div>
     </div>
-    <div class="import-hint">Columns in order: Name, Serving label, Serving grams, Calories, Protein, Carbs, Fat, Brand (optional), Icon (optional). Nutrition values are per serving. No header row. Icons: ${FOOD_ICONS.map(i => i.key).join(', ')}.</div>
+    <div class="import-hint">Columns in order: Name, Serving label, Serving grams, Calories, Protein, Carbs, Fat, Brand (optional), Icon (optional), Sodium mg, Fiber g, Sugar g (all optional). Nutrition values are per serving. No header row. Icons: ${FOOD_ICONS.map(i => i.key).join(', ')}.</div>
     <textarea id="dbImport" class="trash-input import-box" rows="8" placeholder="Paste rows here"></textarea>
     <div class="form-error" id="dbImportError"></div>
     <div class="goals-form-row">
@@ -1822,18 +1897,24 @@ async function importFoods() {
   const errors = [];
   lines.forEach((line, idx) => {
     const p = line.split('\t').map(x => x.trim());
-    if (p.length < 7) {
-      errors.push(`Line ${idx + 1}: expected 7 to 9 tab separated fields, got ${p.length}.`);
+    if (p.length < 7 || p.length > 12) {
+      errors.push(`Line ${idx + 1}: expected 7 to 12 tab separated fields, got ${p.length}.`);
       return;
     }
-    const [name, label, gramsRaw, calRaw, proRaw, carbRaw, fatRaw, brand, icon] = p;
+    const [name, label, gramsRaw, calRaw, proRaw, carbRaw, fatRaw, brand, icon, sodRaw, fibRaw, sugRaw] = p;
     const grams = parseFloat(gramsRaw);
     const cal = parseFloat(calRaw), pro = parseFloat(proRaw), carb = parseFloat(carbRaw), fat = parseFloat(fatRaw);
     if (!name || !label) { errors.push(`Line ${idx + 1}: missing name or serving label.`); return; }
     if (!(grams > 0)) { errors.push(`Line ${idx + 1}: serving grams must be a positive number.`); return; }
     if ([cal, pro, carb, fat].some(n => isNaN(n) || n < 0)) { errors.push(`Line ${idx + 1}: nutrition values must be numbers, zero or more.`); return; }
     if (icon && !iconKeys.has(icon)) { errors.push(`Line ${idx + 1}: unknown icon "${icon}".`); return; }
-    rows.push({ name, label, grams, cal, pro, carb, fat, brand: brand || null, icon: icon || null });
+    const opt = v => (v == null || v === '') ? null : parseFloat(v);
+    const sod = opt(sodRaw), fib = opt(fibRaw), sug = opt(sugRaw);
+    if ([sod, fib, sug].some(n => n !== null && (isNaN(n) || n < 0))) {
+      errors.push(`Line ${idx + 1}: sodium, fiber, and sugar must be numbers, zero or more.`);
+      return;
+    }
+    rows.push({ name, label, grams, cal, pro, carb, fat, brand: brand || null, icon: icon || null, sod, fib, sug });
   });
   if (errors.length > 0) {
     showFormError('dbImportError',
@@ -1849,6 +1930,9 @@ async function importFoods() {
       id: `f${base}x${i}`, name: r.name, brand: r.brand, icon: r.icon,
       calories: round2(r.cal * k), protein: round2(r.pro * k),
       carbs: round2(r.carb * k), fat: round2(r.fat * k),
+      sodium: r.sod === null ? null : round2(r.sod * k),
+      fiber:  r.fib === null ? null : round2(r.fib * k),
+      sugar:  r.sug === null ? null : round2(r.sug * k),
     };
   });
   const servRows = rows.map((r, i) => ({ id: `s${base}x${i}`, food_id: `f${base}x${i}`, label: r.label, grams: r.grams }));

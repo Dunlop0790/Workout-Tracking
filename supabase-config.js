@@ -157,6 +157,11 @@ alter table news enable row level security;
 create policy "Read only" on news for select using (true);
 alter publication supabase_realtime add table news;
 
+-- Optional nutrients on foods (blank means unknown, not zero)
+alter table foods add column if not exists sodium numeric;
+alter table foods add column if not exists fiber  numeric;
+alter table foods add column if not exists sugar  numeric;
+
 -- To post news:
 --   insert into news (content, ts)
 --   values ('New: Nutrition tab is live', (extract(epoch from now()) * 1000)::bigint);
