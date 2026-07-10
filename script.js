@@ -2377,8 +2377,13 @@ function terminalUnlocked() {
 function applyTheme(key) {
   let t = THEMES.find(x => x.key === key) || THEMES[0];
   if (t.locked && !terminalUnlocked()) t = THEMES[0];
+  const wasDark = document.documentElement.dataset.theme === 'dark';
   if (t.attr) document.documentElement.dataset.theme = t.attr;
   else delete document.documentElement.dataset.theme;
+  if (t.attr === 'dark' && !wasDark) {
+    document.documentElement.classList.add('neon-on');
+    setTimeout(() => document.documentElement.classList.remove('neon-on'), 950);
+  }
   const sel = document.getElementById('themePicker');
   if (sel) sel.value = t.key;
 }
