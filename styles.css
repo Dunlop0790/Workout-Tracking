@@ -1730,6 +1730,7 @@ h1 {
 }
 [data-theme="wii"] body {
   font-family: 'M PLUS Rounded 1c', 'Lexend', sans-serif;
+  font-weight: 500;
   background:
     repeating-linear-gradient(0deg, rgba(150,168,180,0.10) 0 1px, transparent 1px 4px),
     linear-gradient(180deg, #f5f8f9 0%, #e9eef1 60%, #dfe7eb 100%);
@@ -2085,6 +2086,7 @@ html.crt-flicker body { animation: crt-flick 0.7s steps(3); }
 
 /* City-sky background: signage glow bleeding in from the edges */
 [data-theme="dark"] body {
+  font-family: 'DotGothic16', 'Lexend', sans-serif;
   background:
     radial-gradient(ellipse 70% 45% at 85% 108%, rgba(255,79,216,0.14), transparent 60%),
     radial-gradient(ellipse 65% 40% at 8% -8%, rgba(53,224,255,0.10), transparent 60%),
@@ -2164,14 +2166,9 @@ html.crt-flicker body { animation: crt-flick 0.7s steps(3); }
 /* Signage type: dot-matrix gothic for display text */
 [data-theme="dark"] h1,
 [data-theme="dark"] .section-header,
-[data-theme="dark"] .stat-num,
-[data-theme="dark"] .record-val,
-[data-theme="dark"] .nut-cal-line,
-[data-theme="dark"] .calc-result-cal {
-  font-family: 'DotGothic16', 'Lexend', sans-serif;
+[data-theme="dark"] .stat-num {
   letter-spacing: 0.5px;
 }
-[data-theme="dark"] #sidenav h1::after { font-family: 'DotGothic16', sans-serif; }
 
 /* Loose-tube flicker on the katakana sign */
 @media (prefers-reduced-motion: no-preference) {
@@ -2282,7 +2279,7 @@ html.neon-on[data-theme="dark"] body {
   --shadow-md:0 6px 16px rgba(230,150,180,0.3);
 }
 [data-theme="sakura"] body {
-  font-family: 'M PLUS Rounded 1c', 'Lexend', sans-serif;
+  font-family: 'Hachi Maru Pop', 'M PLUS Rounded 1c', sans-serif;
   background-color: #fdeaf0;
   background-image:
     radial-gradient(rgba(255,255,255,0.7) 21%, transparent 22%),
@@ -2375,15 +2372,12 @@ html.neon-on[data-theme="dark"] body {
   background: rgba(242,123,167,0.4);
 }
 
-[data-theme="sakura"] h1,
-[data-theme="sakura"] .section-header,
-[data-theme="sakura"] .stat-num,
+[data-theme="sakura"] h1 { font-size: 25px; line-height: 1.4; }
+[data-theme="sakura"] .section-header { font-size: 11px; }
 [data-theme="sakura"] .wc-toast,
 [data-theme="sakura"] .wc-toast-big {
   font-family: 'Hachi Maru Pop', 'M PLUS Rounded 1c', sans-serif;
 }
-[data-theme="sakura"] h1 { font-size: 25px; line-height: 1.4; }
-[data-theme="sakura"] .section-header { font-size: 11px; }
 
 [data-theme="sakura"] .streak-badge::before {
   content: '\1F43E ';
