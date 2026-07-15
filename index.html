@@ -134,6 +134,27 @@
 
   </main>
 
+  <aside id="gb-game" aria-label="Blocks game">
+    <div class="gb-game-title">BLOCKS</div>
+    <canvas id="gbCanvas" width="160" height="288"></canvas>
+    <div class="gb-game-meta">
+      <div>SCORE <span id="gbScore">0</span></div>
+      <div>LINES <span id="gbLines">0</span></div>
+      <div>LEVEL <span id="gbLevel">1</span></div>
+    </div>
+    <div class="gb-game-over" id="gbOver" style="display:none">
+      <div>GAME OVER</div>
+      <input id="gbInitials" maxlength="3" placeholder="AAA" autocomplete="off"/>
+      <button id="gbSubmit">SAVE</button>
+    </div>
+    <div class="gb-game-hint" id="gbHint">CLICK TO START</div>
+    <div class="gb-game-scores">
+      <div class="gb-game-title-sm">HI-SCORES</div>
+      <div id="gbScores"></div>
+    </div>
+    <div class="gb-game-keys">&#8592;&#8594;&#8595; MOVE &#183; &#8593; ROTATE &#183; SPACE DROP</div>
+  </aside>
+
 </div>
 
 <div class="credit">Made by Corey Hausterman</div>

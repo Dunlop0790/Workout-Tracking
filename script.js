@@ -2738,6 +2738,253 @@ function startCrtSaver(ov) {
 resetSaverTimer();
 
 // ─────────────────────────────────────────────
+// BLOCKS: falling-tetromino game living in the Game Boy theme's
+// right margin on wide screens. Logic is separated from canvas
+// rendering so it stays testable.
+// ─────────────────────────────────────────────
+
+const GB_W = 10;
+const GB_H = 18;
+const GB_CELL = 16;
+const GB_INK = '#2b3022';
+const GB_MID = '#7a8163';
+const GB_BG  = '#c2c8a5';
+
+// Shapes as grids; four rotation states are derived at init
+const GB_SHAPES = [
+  ['....', 'XXXX', '....', '....'],           // I
+  ['XX', 'XX'],                               // O
+  ['.X.', 'XXX', '...'],                      // T
+  ['.XX', 'XX.', '...'],                      // S
+  ['XX.', '.XX', '...'],                      // Z
+  ['X..', 'XXX', '...'],                      // J
+  ['..X', 'XXX', '...'],                      // L
+];
+
+function gbRotateGrid(g) {
+  const n = g.length;
+  return g.map((row, y) => row.split('').map((_, x) => g[n - 1 - x][y]).join(''));
+}
+
+function gbCells(grid) {
+  const out = [];
+  grid.forEach((row, y) => row.split('').forEach((ch, x) => { if (ch === 'X') out.push([x, y]); }));
+  return out;
+}
+
+const GB_PIECES = GB_SHAPES.map(shape => {
+  const rotations = [];
+  let g = shape;
+  for (let i = 0; i < 4; i++) { rotations.push(gbCells(g)); g = gbRotateGrid(g); }
+  return rotations;
+});
+
+const gb = {
+  board: null, piece: null, next: null,
+  score: 0, lines: 0, level: 1,
+  running: false, over: false, timer: null,
+};
+
+function gbNewBoard() { return Array.from({ length: GB_H }, () => Array(GB_W).fill(0)); }
+
+function gbRandPiece() {
+  return { type: Math.floor(Math.random() * GB_PIECES.length), rot: 0, x: 3, y: -1 };
+}
+
+function gbPieceCells(p, rot = p.rot, ox = p.x, oy = p.y) {
+  return GB_PIECES[p.type][rot].map(([x, y]) => [x + ox, y + oy]);
+}
+
+function gbCollides(board, cells) {
+  return cells.some(([x, y]) =>
+    x < 0 || x >= GB_W || y >= GB_H || (y >= 0 && board[y][x] !== 0));
+}
+
+function gbMerge(board, cells) {
+  cells.forEach(([x, y]) => { if (y >= 0) board[y][x] = 1; });
+}
+
+function gbClearLines(board) {
+  let cleared = 0;
+  for (let y = GB_H - 1; y >= 0; y--) {
+    if (board[y].every(c => c !== 0)) {
+      board.splice(y, 1);
+      board.unshift(Array(GB_W).fill(0));
+      cleared++;
+      y++;
+    }
+  }
+  return cleared;
+}
+
+const GB_LINE_SCORES = [0, 100, 300, 500, 800];
+
+function gbDropMs() { return Math.max(90, 620 - (gb.level - 1) * 55); }
+
+function gbSpawn() {
+  gb.piece = gb.next || gbRandPiece();
+  gb.next = gbRandPiece();
+  if (gbCollides(gb.board, gbPieceCells(gb.piece))) gbGameOver();
+}
+
+function gbLock() {
+  gbMerge(gb.board, gbPieceCells(gb.piece));
+  const cleared = gbClearLines(gb.board);
+  if (cleared > 0) {
+    gb.score += GB_LINE_SCORES[cleared] * gb.level;
+    gb.lines += cleared;
+    const newLevel = Math.floor(gb.lines / 10) + 1;
+    if (newLevel !== gb.level) { gb.level = newLevel; gbRestartTimer(); }
+  }
+  gbSpawn();
+}
+
+function gbTick() {
+  if (!gb.running) return;
+  // Switching away from the Game Boy theme ends the game
+  if (document.documentElement.dataset.theme !== 'dmg') { gbGameOver(); return; }
+  const moved = gbPieceCells(gb.piece, gb.piece.rot, gb.piece.x, gb.piece.y + 1);
+  if (gbCollides(gb.board, moved)) gbLock();
+  else gb.piece.y++;
+  gbDraw();
+}
+
+function gbMove(dx) {
+  const cells = gbPieceCells(gb.piece, gb.piece.rot, gb.piece.x + dx, gb.piece.y);
+  if (!gbCollides(gb.board, cells)) { gb.piece.x += dx; gbDraw(); }
+}
+
+function gbRotate() {
+  const rot = (gb.piece.rot + 1) % 4;
+  // Try in place, then one-cell wall kicks
+  for (const kick of [0, -1, 1, -2, 2]) {
+    const cells = gbPieceCells(gb.piece, rot, gb.piece.x + kick, gb.piece.y);
+    if (!gbCollides(gb.board, cells)) {
+      gb.piece.rot = rot;
+      gb.piece.x += kick;
+      gbDraw();
+      return;
+    }
+  }
+}
+
+function gbHardDrop() {
+  while (!gbCollides(gb.board, gbPieceCells(gb.piece, gb.piece.rot, gb.piece.x, gb.piece.y + 1))) {
+    gb.piece.y++;
+    gb.score += 2;
+  }
+  gbLock();
+  gbDraw();
+}
+
+function gbRestartTimer() {
+  clearInterval(gb.timer);
+  gb.timer = setInterval(gbTick, gbDropMs());
+}
+
+function gbStart() {
+  gb.board = gbNewBoard();
+  gb.score = 0; gb.lines = 0; gb.level = 1;
+  gb.over = false; gb.running = true;
+  gb.next = null;
+  gbSpawn();
+  gbRestartTimer();
+  document.getElementById('gbOver').style.display = 'none';
+  document.getElementById('gbHint').style.display = 'none';
+  gbDraw();
+}
+
+function gbStop() {
+  gb.running = false;
+  clearInterval(gb.timer);
+  gb.timer = null;
+}
+
+function gbGameOver() {
+  gbStop();
+  gb.over = true;
+  const overEl = document.getElementById('gbOver');
+  if (overEl && gb.score > 0) overEl.style.display = '';
+  const hint = document.getElementById('gbHint');
+  if (hint) { hint.textContent = 'CLICK TO RETRY'; hint.style.display = ''; }
+}
+
+function gbVisible() {
+  return document.documentElement.dataset.theme === 'dmg' &&
+    window.matchMedia('(min-width: 1500px)').matches;
+}
+
+function gbDraw() {
+  const meta = { gbScore: gb.score, gbLines: gb.lines, gbLevel: gb.level };
+  Object.entries(meta).forEach(([id, v]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = v;
+  });
+  const canvas = document.getElementById('gbCanvas');
+  const ctx = canvas?.getContext?.('2d');
+  if (!ctx) return;
+  ctx.fillStyle = GB_BG;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const cell = (x, y, fill) => {
+    ctx.fillStyle = fill;
+    ctx.fillRect(x * GB_CELL + 1, y * GB_CELL + 1, GB_CELL - 2, GB_CELL - 2);
+  };
+  gb.board?.forEach((row, y) => row.forEach((v, x) => { if (v) cell(x, y, GB_INK); }));
+  if (gb.piece && gb.running) {
+    gbPieceCells(gb.piece).forEach(([x, y]) => { if (y >= 0) cell(x, y, GB_INK); });
+    // Next piece ghost in the top-right corner
+    GB_PIECES[gb.next.type][0].forEach(([x, y]) => {
+      ctx.fillStyle = GB_MID;
+      ctx.fillRect((GB_W - 4 + x) * GB_CELL + 5, y * GB_CELL + 5, 6, 6);
+    });
+  }
+}
+
+async function gbLoadScores() {
+  const el = document.getElementById('gbScores');
+  if (!el) return;
+  const { data } = await db.from('dmg_scores').select('*').order('score', { ascending: false }).limit(5);
+  const rows = data || [];
+  el.innerHTML = rows.length === 0
+    ? '<div class="gb-score-row">NO SCORES YET</div>'
+    : rows.map((r, i) => `<div class="gb-score-row"><span>${i + 1}. ${esc(r.initials)}</span><span>${r.score}</span></div>`).join('');
+}
+
+async function gbSubmitScore() {
+  const input = document.getElementById('gbInitials');
+  const initials = (input?.value || 'AAA').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3) || 'AAA';
+  document.getElementById('gbOver').style.display = 'none';
+  input.value = '';
+  await db.from('dmg_scores').insert({ initials, score: gb.score, lines: gb.lines, ts: Date.now() });
+  gbLoadScores();
+}
+
+document.getElementById('gbCanvas').addEventListener('click', () => {
+  if (!gb.running) gbStart();
+});
+document.getElementById('gbSubmit').addEventListener('click', gbSubmitScore);
+
+document.addEventListener('keydown', e => {
+  if (!gb.running || !gbVisible()) return;
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+  const handled = {
+    ArrowLeft:  () => gbMove(-1),
+    ArrowRight: () => gbMove(1),
+    ArrowDown:  () => { gb.score += 1; gbTick(); },
+    ArrowUp:    gbRotate,
+    ' ':        gbHardDrop,
+  }[e.key];
+  if (handled) { e.preventDefault(); handled(); }
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && gb.running) gbGameOver();
+});
+
+gbLoadScores();
+
+// ─────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────
 

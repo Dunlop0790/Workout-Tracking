@@ -2479,3 +2479,102 @@ html.bloom-on[data-theme="sakura"] body {
   55%  { filter: saturate(1.35) brightness(1.05); }
   100% { filter: none; }
 }
+
+/* =========================
+   BLOCKS: Game Boy theme side game. Exists only in DMG on screens
+   wide enough to have the right margin.
+   ========================= */
+#gb-game { display: none; }
+@media (min-width: 1500px) {
+  [data-theme="dmg"] #gb-game {
+    display: block;
+    position: fixed;
+    right: 28px;
+    top: 76px;
+    width: 196px;
+    padding: 12px 14px;
+    background: var(--surface);
+    border: 2px solid var(--text);
+    border-radius: 4px;
+    font-family: 'Silkscreen', monospace;
+    color: var(--text);
+    z-index: 50;
+  }
+}
+.gb-game-title {
+  font-size: 13px;
+  letter-spacing: 2px;
+  text-align: center;
+  margin-bottom: 8px;
+}
+#gbCanvas {
+  display: block;
+  width: 160px;
+  height: 288px;
+  margin: 0 auto;
+  border: 2px solid var(--text);
+  background: var(--bg);
+  cursor: pointer;
+  image-rendering: pixelated;
+}
+.gb-game-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  margin: 8px 0 4px;
+}
+.gb-game-hint {
+  font-size: 9px;
+  text-align: center;
+  margin: 6px 0;
+  animation: gb-blink 1.4s steps(2) infinite;
+}
+@keyframes gb-blink { 50% { opacity: 0.25; } }
+.gb-game-over {
+  text-align: center;
+  font-size: 10px;
+  margin: 6px 0;
+}
+.gb-game-over input {
+  width: 52px;
+  margin: 6px 4px 0 0;
+  padding: 3px 6px;
+  font-family: 'Silkscreen', monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  text-align: center;
+  border: 1px solid var(--text);
+  border-radius: 3px;
+  background: var(--bg);
+  color: var(--text);
+}
+.gb-game-over button {
+  font-family: 'Silkscreen', monospace;
+  font-size: 9px;
+  padding: 4px 8px;
+  border: 1px solid var(--text);
+  border-radius: 3px;
+  background: var(--text);
+  color: var(--bg);
+  cursor: pointer;
+}
+.gb-game-title-sm {
+  font-size: 9px;
+  letter-spacing: 1px;
+  margin: 10px 0 4px;
+  border-top: 1px solid var(--border-2);
+  padding-top: 8px;
+}
+.gb-score-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  padding: 2px 0;
+}
+.gb-game-keys {
+  font-size: 8px;
+  color: var(--text-2);
+  margin-top: 8px;
+  text-align: center;
+  line-height: 1.6;
+}

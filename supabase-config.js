@@ -190,6 +190,17 @@ select cron.schedule(
       and ts < (extract(epoch from now()) - 14*24*3600) * 1000$$
 );
 
+-- BLOCKS hi-scores (Game Boy theme side game)
+create table if not exists dmg_scores (
+  id       bigserial primary key,
+  initials text not null,
+  score    int not null,
+  lines    int not null,
+  ts       bigint not null
+);
+alter table dmg_scores enable row level security;
+create policy "Allow all" on dmg_scores for all using (true) with check (true);
+
 -- To post news:
 --   insert into news (content, ts)
 --   values ('New: Nutrition tab is live', (extract(epoch from now()) * 1000)::bigint);
