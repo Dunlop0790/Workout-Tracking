@@ -2489,10 +2489,14 @@ html.bloom-on[data-theme="sakura"] body {
   [data-theme="dmg"] #gb-game {
     display: block;
     position: fixed;
-    right: 28px;
-    top: 76px;
-    width: 196px;
-    padding: 12px 14px;
+    /* Centered in the dead zone between the 1240px content edge and
+       the viewport's right edge */
+    left: calc(216px + min(100vw - 216px, 1240px) + (100vw - 216px - min(100vw - 216px, 1240px)) / 2);
+    transform: translateX(-50%);
+    top: 50%;
+    translate: 0 -50%;
+    width: 268px;
+    padding: 16px 18px;
     background: var(--surface);
     border: 2px solid var(--text);
     border-radius: 4px;
@@ -2502,15 +2506,15 @@ html.bloom-on[data-theme="sakura"] body {
   }
 }
 .gb-game-title {
-  font-size: 13px;
+  font-size: 15px;
   letter-spacing: 2px;
   text-align: center;
   margin-bottom: 8px;
 }
 #gbCanvas {
   display: block;
-  width: 160px;
-  height: 288px;
+  width: 220px;
+  height: 396px;
   margin: 0 auto;
   border: 2px solid var(--text);
   background: var(--bg);
@@ -2520,8 +2524,8 @@ html.bloom-on[data-theme="sakura"] body {
 .gb-game-meta {
   display: flex;
   justify-content: space-between;
-  font-size: 9px;
-  margin: 8px 0 4px;
+  font-size: 10px;
+  margin: 10px 0 4px;
 }
 .gb-game-hint {
   font-size: 9px;
@@ -2568,8 +2572,8 @@ html.bloom-on[data-theme="sakura"] body {
 .gb-score-row {
   display: flex;
   justify-content: space-between;
-  font-size: 9px;
-  padding: 2px 0;
+  font-size: 10px;
+  padding: 3px 0;
 }
 .gb-game-keys {
   font-size: 8px;

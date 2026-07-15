@@ -2745,7 +2745,7 @@ resetSaverTimer();
 
 const GB_W = 10;
 const GB_H = 18;
-const GB_CELL = 16;
+const GB_CELL = 22;
 const GB_INK = '#2b3022';
 const GB_MID = '#7a8163';
 const GB_BG  = '#c2c8a5';
@@ -2935,7 +2935,7 @@ function gbDraw() {
     // Next piece ghost in the top-right corner
     GB_PIECES[gb.next.type][0].forEach(([x, y]) => {
       ctx.fillStyle = GB_MID;
-      ctx.fillRect((GB_W - 4 + x) * GB_CELL + 5, y * GB_CELL + 5, 6, 6);
+      ctx.fillRect((GB_W - 4 + x) * GB_CELL + 7, y * GB_CELL + 7, 8, 8);
     });
   }
 }
