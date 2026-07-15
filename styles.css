@@ -1440,6 +1440,49 @@ h1 {
 .form-error:empty { display: none; }
 
 /* =========================
+   Nutrition trends
+   ========================= */
+.trend-block { margin-bottom: 16px; }
+.trend-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 5px;
+}
+.trend-avg { font-size: 11px; font-weight: 400; color: var(--text-3); }
+.trend-chart {
+  display: block;
+  width: 100%;
+  height: 52px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+}
+.trend-bar { fill: var(--text-3); opacity: 0.75; }
+.trend-bar-today { fill: var(--green-light); opacity: 1; }
+.trend-goal {
+  stroke: var(--gold);
+  stroke-width: 1;
+  stroke-dasharray: 3 2;
+  vector-effect: non-scaling-stroke;
+}
+.trend-days {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 4px 0;
+  font-size: 9px;
+  color: var(--text-3);
+  text-transform: uppercase;
+}
+[data-theme="dark"] .trend-bar-today {
+  fill: var(--neon);
+  filter: drop-shadow(0 0 3px rgba(53,224,255,0.7));
+}
+
+/* =========================
    Food icons
    ========================= */
 .food-icon {

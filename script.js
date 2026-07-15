@@ -1302,16 +1302,85 @@ function nutDateLabel(todayStr) {
 
 function renderNutrition() {
   renderNutritionPicker();
+  renderNutTrends();
   // Realtime refreshes must not destroy an open search or form mid-typing.
   // Actions call the render functions directly, bypassing these guards.
   if (!dbFormMode) renderFoodDb();
-  if (addFoodOpen || editingGoals || goalCalcOpen || goalCalcResult) return;
+  if (addFoodOpen || editingGoals || goalCalcOpen || goalCalcResult) {
+    // The one refresh allowed while panels are open: a just-created
+    // food arriving over realtime, so its log form can appear. The
+    // waiting state has no inputs, so nothing being typed is lost.
+    if (pendingLogFoodId && foodById(pendingLogFoodId) && !document.getElementById('logQty')) {
+      renderNutritionBody();
+    }
+    return;
+  }
   renderNutritionBody();
 }
 
 // ─────────────────────────────────────────────
 // Render: Food database panel
 // ─────────────────────────────────────────────
+
+function renderNutTrends() {
+  const wrap = document.getElementById('nut-trends-wrap');
+  const el = document.getElementById('nut-trends');
+  if (!wrap || !el) return;
+  const member = members.find(m => m.id === nutMember);
+  if (!member) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+
+  // Last 7 diary days ending at the member's effective today
+  const end = effectiveDiaryToday(member.day_start, new Date());
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(end + 'T12:00:00');
+    d.setDate(d.getDate() - i);
+    days.push(localDateStr(d));
+  }
+  const perDay = days.map(date => {
+    return foodLog
+      .filter(e => e.member_id === nutMember && e.log_date === date)
+      .reduce((acc, e) => {
+        const food = foodById(e.food_id);
+        if (!food) return acc;
+        const m = macrosFor(food, e.grams);
+        acc.cal += m.cal; acc.pro += m.pro;
+        return acc;
+      }, { cal: 0, pro: 0 });
+  });
+  const goals = macroGoals.find(g => g.member_id === nutMember);
+  const dayLetters = days.map(date => new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'narrow' }));
+
+  el.innerHTML =
+    trendBlockHTML('Calories', perDay.map(d => d.cal), goals?.calories, dayLetters) +
+    trendBlockHTML('Protein',  perDay.map(d => d.pro), goals?.protein,  dayLetters);
+}
+
+function trendBlockHTML(label, vals, goal, dayLetters) {
+  const logged = vals.filter(v => v > 0);
+  const avg = logged.length > 0 ? Math.round(logged.reduce((a, b) => a + b, 0) / logged.length) : 0;
+  const max = Math.max(...vals, goal || 0, 1);
+  const bars = vals.map((v, i) => {
+    const h = v > 0 ? Math.max(2, (v / max) * 30) : 1.5;
+    const x = i * 14 + 1;
+    const today = i === vals.length - 1;
+    return `<rect x="${x}" y="${round2(32 - h)}" width="12" height="${round2(h)}" rx="1.5"
+      class="trend-bar${today ? ' trend-bar-today' : ''}"><title>${Math.round(v)}</title></rect>`;
+  }).join('');
+  const goalLine = goal
+    ? `<line x1="0" x2="99" y1="${round2(32 - (goal / max) * 30)}" y2="${round2(32 - (goal / max) * 30)}" class="trend-goal"/>`
+    : '';
+  return `
+    <div class="trend-block">
+      <div class="trend-head">
+        <span>${label}</span>
+        <span class="trend-avg">${avg > 0 ? `avg ${avg}` : 'no data'}</span>
+      </div>
+      <svg class="trend-chart" viewBox="0 0 99 33" preserveAspectRatio="none" aria-hidden="true">${bars}${goalLine}</svg>
+      <div class="trend-days">${dayLetters.map(l => `<span>${l}</span>`).join('')}</div>
+    </div>`;
+}
 
 function renderFoodDb() {
   const el = document.getElementById('food-db');
@@ -1407,8 +1476,14 @@ function renderDbFoodList() {
   if (el) el.innerHTML = dbFoodListHTML();
 }
 
-function dbFoodFormHTML() {
-  const editing = dbFormMode === 'edit' ? foodById(dbEditingId) : null;
+// ─────────────────────────────────────────────
+// Shared food form: both entry points (Food Database panel and the
+// meal-flow add panel) render the same fields and save through the
+// same payload builder. Only headers, buttons, and state wiring
+// differ per caller.
+// ─────────────────────────────────────────────
+
+function foodFormFieldsHTML(prefix, editing) {
   const basis = editing ? primaryServing(editing.id) : null;
   const k = basis ? basis.grams / 100 : 1;
   const f = editing
@@ -1426,37 +1501,109 @@ function dbFoodFormHTML() {
       <div class="food-row-stats">${editing && basis ? `Values shown per ${esc(basis.label)}` : 'Define the serving, then enter nutrition per serving'}</div>
     </div>
     <div class="goals-form-row">
-      <input id="dbName"  class="add-input" placeholder="Name" value="${esc(f.name)}"/>
+      <input id="${prefix}Name"  class="add-input" placeholder="Name" value="${esc(f.name)}"/>
     </div>
     <div class="goals-form-row">
-      <input id="dbBrand" class="add-input" placeholder="Brand (optional)" value="${esc(f.brand || '')}"/>
+      <input id="${prefix}Brand" class="add-input" placeholder="Brand (optional)" value="${esc(f.brand || '')}"/>
     </div>
-    ${iconPickerHTML('dbIcon', f.icon)}
+    ${iconPickerHTML(prefix + 'Icon', f.icon)}
     ${editing ? servingListHTML(editing.id) : ''}
     <div class="serving-label">Serving size${editing ? ' (add another)' : ''}</div>
     <div class="goals-form-row">
-      <input id="dbServLabel" class="add-input" placeholder="One serving is... (e.g. 1 egg)"/>
-      <input type="number" inputmode="decimal" id="dbServAmt" class="lift-input" placeholder="Weight"/>
-      <select id="dbServUnit" class="strength-picker serving-unit">
+      <input id="${prefix}ServLabel" class="add-input" placeholder="One serving is... (e.g. 1 egg)"/>
+      <input type="number" inputmode="decimal" id="${prefix}ServAmt" class="lift-input" placeholder="Weight"/>
+      <select id="${prefix}ServUnit" class="strength-picker serving-unit">
         ${MASS_UNITS.map(u => `<option value="${u.key}">${u.label}</option>`).join('')}
       </select>
     </div>
     <div class="serving-label">Nutrition per serving</div>
     <div class="goals-form-row">
-      <input type="number" inputmode="decimal" id="dbCal" class="lift-input" placeholder="Calories" value="${f.calories}"/>
-      <input type="number" inputmode="decimal" id="dbPro" class="lift-input" placeholder="Protein g" value="${f.protein}"/>
+      <input type="number" inputmode="decimal" id="${prefix}Cal" class="lift-input" placeholder="Calories" value="${f.calories}"/>
+      <input type="number" inputmode="decimal" id="${prefix}Pro" class="lift-input" placeholder="Protein g" value="${f.protein}"/>
     </div>
     <div class="goals-form-row">
-      <input type="number" inputmode="decimal" id="dbCarb" class="lift-input" placeholder="Carbs g" value="${f.carbs}"/>
-      <input type="number" inputmode="decimal" id="dbFat"  class="lift-input" placeholder="Fat g" value="${f.fat}"/>
+      <input type="number" inputmode="decimal" id="${prefix}Carb" class="lift-input" placeholder="Carbs g" value="${f.carbs}"/>
+      <input type="number" inputmode="decimal" id="${prefix}Fat"  class="lift-input" placeholder="Fat g" value="${f.fat}"/>
     </div>
     <div class="serving-label">Optional, per serving</div>
     <div class="goals-form-row">
-      <input type="number" inputmode="decimal" id="dbSodium" class="lift-input" placeholder="Sodium mg" value="${f.sodium}"/>
-      <input type="number" inputmode="decimal" id="dbFiber"  class="lift-input" placeholder="Fiber g" value="${f.fiber}"/>
-      <input type="number" inputmode="decimal" id="dbSugar"  class="lift-input" placeholder="Sugar g" value="${f.sugar}"/>
+      <input type="number" inputmode="decimal" id="${prefix}Sodium" class="lift-input" placeholder="Sodium mg" value="${f.sodium}"/>
+      <input type="number" inputmode="decimal" id="${prefix}Fiber"  class="lift-input" placeholder="Fiber g" value="${f.fiber}"/>
+      <input type="number" inputmode="decimal" id="${prefix}Sugar"  class="lift-input" placeholder="Sugar g" value="${f.sugar}"/>
     </div>
-    <div class="form-error" id="dbError"></div>
+    <div class="form-error" id="${prefix}Error"></div>`;
+}
+
+// Reads and validates the form; returns { error } or a commit-ready
+// description. Nutrition is entered per serving, stored per 100g.
+function buildFoodPayload(prefix, editingId) {
+  const val = id => document.getElementById(prefix + id)?.value;
+  const name  = val('Name')?.trim();
+  const brand = val('Brand')?.trim() || null;
+  const cal   = parseFloat(val('Cal'));
+  const pro   = parseFloat(val('Pro'));
+  const carb  = parseFloat(val('Carb'));
+  const fat   = parseFloat(val('Fat'));
+  if (!name || isNaN(cal) || isNaN(pro) || isNaN(carb) || isNaN(fat)) {
+    return { error: 'Fill in the name and all four nutrition fields.' };
+  }
+  if (cal < 0 || pro < 0 || carb < 0 || fat < 0) {
+    return { error: 'Nutrition values cannot be negative.' };
+  }
+  const sod = optNum(prefix + 'Sodium');
+  const fib = optNum(prefix + 'Fiber');
+  const sug = optNum(prefix + 'Sugar');
+  if ([sod, fib, sug].some(n => n !== null && (isNaN(n) || n < 0))) {
+    return { error: 'Optional nutrition values must be numbers, zero or more.' };
+  }
+
+  const icon = val('Icon') || null;
+  const servLabel = val('ServLabel')?.trim();
+  const servAmt   = parseFloat(val('ServAmt'));
+  const servUnit  = MASS_UNITS.find(u => u.key === val('ServUnit'));
+  const servGramsNew = servAmt > 0 && servUnit ? servAmt * servUnit.grams : null;
+
+  let basisGrams;
+  if (editingId) {
+    const basis = primaryServing(editingId);
+    basisGrams = basis ? basis.grams : servGramsNew;
+    if (!basisGrams) return { error: 'Define the serving size; nutrition is entered per serving.' };
+  } else {
+    if (!servLabel || !servGramsNew) return { error: 'Define the serving size, e.g. 1 egg weighing 50 g.' };
+    basisGrams = servGramsNew;
+  }
+
+  const k = 100 / basisGrams;
+  return {
+    mode: editingId ? 'edit' : 'create',
+    id: editingId || 'f' + Date.now(),
+    payload: {
+      name, brand, icon,
+      calories: round2(cal * k), protein: round2(pro * k),
+      carbs: round2(carb * k), fat: round2(fat * k),
+      sodium: sod === null ? null : round2(sod * k),
+      fiber:  fib === null ? null : round2(fib * k),
+      sugar:  sug === null ? null : round2(sug * k),
+    },
+    serving: (servLabel && servGramsNew) ? { label: servLabel, grams: servGramsNew } : null,
+  };
+}
+
+async function commitFood(r) {
+  if (r.mode === 'edit') {
+    await db.from('foods').update(r.payload).eq('id', r.id);
+  } else {
+    await db.from('foods').insert({ id: r.id, ...r.payload });
+  }
+  if (r.serving) {
+    await db.from('food_servings').insert({ id: 's' + Date.now(), food_id: r.id, label: r.serving.label, grams: r.serving.grams });
+  }
+}
+
+function dbFoodFormHTML() {
+  const editing = dbFormMode === 'edit' ? foodById(dbEditingId) : null;
+  return `
+    ${foodFormFieldsHTML('db', editing)}
     <div class="goals-form-row">
       <button class="lift-save" data-action="db-save-food">${editing ? 'Save' : 'Add food'}</button>
       ${editing ? `<button class="lift-history-toggle" data-action="db-delete-food" data-food-id="${editing.id}">Delete</button>` : ''}
@@ -1476,6 +1623,7 @@ function renderNutritionPicker() {
 }
 
 function renderNutritionBody() {
+  renderNutTrends();
   const body = document.getElementById('nutrition-body');
   if (!body) return;
   if (members.length === 0) { body.innerHTML = `<p class="empty-msg">No members yet.</p>`; return; }
@@ -1682,7 +1830,9 @@ function renderFoodSearchResults() {
 
 function logFormHTML() {
   const food = foodById(pendingLogFoodId);
-  if (!food) { pendingLogFoodId = null; return foodAddPanelHTML(); }
+  // A just-created food may not have arrived over realtime yet; hold
+  // the pending state and the next render opens the log form.
+  if (!food) return `<div class="food-add-panel"><div class="food-row-stats">Adding food…</div></div>`;
   const servings = foodServings.filter(s => s.food_id === food.id);
 
   return `
@@ -1714,53 +1864,9 @@ function logFormHTML() {
 
 function foodFormHTML() {
   const editing = foodFormMode === 'edit' ? foodById(editingFoodId) : null;
-  const basis = editing ? primaryServing(editing.id) : null;
-  const k = basis ? basis.grams / 100 : 1;
-  const f = editing
-    ? { name: editing.name, brand: editing.brand, icon: editing.icon,
-        calories: round2(editing.calories * k), protein: round2(editing.protein * k),
-        carbs: round2(editing.carbs * k), fat: round2(editing.fat * k),
-        sodium: editing.sodium == null ? '' : round2(editing.sodium * k),
-        fiber:  editing.fiber  == null ? '' : round2(editing.fiber  * k),
-        sugar:  editing.sugar  == null ? '' : round2(editing.sugar  * k) }
-    : { name: '', brand: '', icon: '', calories: '', protein: '', carbs: '', fat: '', sodium: '', fiber: '', sugar: '' };
-
   return `
     <div class="food-add-panel">
-      <div class="log-food-header">
-        <div class="food-result-name">${editing ? 'Edit food' : 'New food'}</div>
-        <div class="food-row-stats">${editing && basis ? `Values shown per ${esc(basis.label)}` : 'Define the serving, then enter nutrition per serving'}</div>
-      </div>
-      <div class="goals-form-row">
-        <input id="nfName"  class="add-input" placeholder="Name" value="${esc(f.name)}"/>
-        <input id="nfBrand" class="add-input" placeholder="Brand (optional)" value="${esc(f.brand || '')}"/>
-      </div>
-      ${iconPickerHTML('nfIcon', f.icon)}
-      ${editing ? servingListHTML(editing.id) : ''}
-      <div class="serving-label">Serving size${editing ? ' (add another)' : ''}</div>
-      <div class="goals-form-row">
-        <input id="nfServLabel" class="add-input" placeholder="One serving is... (e.g. 1 slice)"/>
-        <input type="number" inputmode="decimal" id="nfServAmt" class="lift-input" placeholder="Weight"/>
-        <select id="nfServUnit" class="strength-picker serving-unit">
-          ${MASS_UNITS.map(u => `<option value="${u.key}">${u.label}</option>`).join('')}
-        </select>
-      </div>
-      <div class="serving-label">Nutrition per serving</div>
-      <div class="goals-form-row">
-        <input type="number" inputmode="decimal" id="nfCal" class="lift-input" placeholder="Calories" value="${f.calories}"/>
-        <input type="number" inputmode="decimal" id="nfPro" class="lift-input" placeholder="Protein g" value="${f.protein}"/>
-      </div>
-      <div class="goals-form-row">
-        <input type="number" inputmode="decimal" id="nfCarb" class="lift-input" placeholder="Carbs g" value="${f.carbs}"/>
-        <input type="number" inputmode="decimal" id="nfFat"  class="lift-input" placeholder="Fat g" value="${f.fat}"/>
-      </div>
-    <div class="serving-label">Optional, per serving</div>
-    <div class="goals-form-row">
-      <input type="number" inputmode="decimal" id="nfSodium" class="lift-input" placeholder="Sodium mg" value="${f.sodium}"/>
-      <input type="number" inputmode="decimal" id="nfFiber"  class="lift-input" placeholder="Fiber g" value="${f.fiber}"/>
-      <input type="number" inputmode="decimal" id="nfSugar"  class="lift-input" placeholder="Sugar g" value="${f.sugar}"/>
-    </div>
-      <div class="form-error" id="nfError"></div>
+      ${foodFormFieldsHTML('nf', editing)}
       <div class="goals-form-row">
         <button class="lift-save" data-action="nut-save-food">${editing ? 'Save changes' : 'Add food'}</button>
         <button class="lift-cancel" data-action="nut-cancel-food">&#215;</button>
@@ -1778,80 +1884,16 @@ function showFormError(id, msg) {
 }
 
 async function saveFood() {
-  const name  = document.getElementById('nfName')?.value.trim();
-  const brand = document.getElementById('nfBrand')?.value.trim() || null;
-  const cal   = parseFloat(document.getElementById('nfCal')?.value);
-  const pro   = parseFloat(document.getElementById('nfPro')?.value);
-  const carb  = parseFloat(document.getElementById('nfCarb')?.value);
-  const fat   = parseFloat(document.getElementById('nfFat')?.value);
-  if (!name || isNaN(cal) || isNaN(pro) || isNaN(carb) || isNaN(fat)) {
-    showFormError('nfError', 'Fill in the name and all four nutrition fields.');
+  const r = buildFoodPayload('nf', foodFormMode === 'edit' ? editingFoodId : null);
+  if (r.error) {
+    showFormError('nfError', r.error);
     return;
   }
-  if (cal < 0 || pro < 0 || carb < 0 || fat < 0) {
-    showFormError('nfError', 'Nutrition values cannot be negative.');
-    return;
-  }
-
-  const sod = optNum('nfSodium');
-  const fib = optNum('nfFiber');
-  const sug = optNum('nfSugar');
-  if ([sod, fib, sug].some(n => n !== null && (isNaN(n) || n < 0))) {
-    showFormError('nfError', 'Optional nutrition values must be numbers, zero or more.');
-    return;
-  }
-
-  const icon = document.getElementById('nfIcon')?.value || null;
-  const servLabel = document.getElementById('nfServLabel')?.value.trim();
-  const servAmt   = parseFloat(document.getElementById('nfServAmt')?.value);
-  const servUnit  = MASS_UNITS.find(u => u.key === document.getElementById('nfServUnit')?.value);
-  const servGramsNew = servAmt > 0 && servUnit ? servAmt * servUnit.grams : null;
-
-  if (foodFormMode === 'edit') {
-    const id = editingFoodId;
-    const basis = primaryServing(id);
-    const basisGrams = basis ? basis.grams : servGramsNew;
-    if (!basisGrams) {
-      showFormError('nfError', 'Define the serving size; nutrition is entered per serving.');
-      return;
-    }
-    const k = 100 / basisGrams;
-    foodFormMode = null;
-    editingFoodId = null;
-    renderNutritionBody();
-    await db.from('foods').update({
-      name, brand, icon,
-      calories: round2(cal * k), protein: round2(pro * k),
-      carbs: round2(carb * k), fat: round2(fat * k),
-      sodium: sod === null ? null : round2(sod * k),
-      fiber:  fib === null ? null : round2(fib * k),
-      sugar:  sug === null ? null : round2(sug * k),
-    }).eq('id', id);
-    if (servLabel && servGramsNew) {
-      await db.from('food_servings').insert({ id: 's' + Date.now(), food_id: id, label: servLabel, grams: servGramsNew });
-    }
-    return;
-  }
-
-  if (!servLabel || !servGramsNew) {
-    showFormError('nfError', 'Define the serving size, e.g. 1 slice weighing 32 g.');
-    return;
-  }
-
-  const k = 100 / servGramsNew;
-  const id = 'f' + Date.now();
+  if (r.mode === 'create') pendingLogFoodId = r.id;
   foodFormMode = null;
-  pendingLogFoodId = id;
+  editingFoodId = null;
   renderNutritionBody();
-  await db.from('foods').insert({
-    id, name, brand, icon,
-    calories: round2(cal * k), protein: round2(pro * k),
-    carbs: round2(carb * k), fat: round2(fat * k),
-    sodium: sod === null ? null : round2(sod * k),
-    fiber:  fib === null ? null : round2(fib * k),
-    sugar:  sug === null ? null : round2(sug * k),
-  });
-  await db.from('food_servings').insert({ id: 's' + Date.now(), food_id: id, label: servLabel, grams: servGramsNew });
+  await commitFood(r);
 }
 
 async function logFood() {
@@ -2075,79 +2117,15 @@ async function applyGoalCalc() {
 // ─────────────────────────────────────────────
 
 async function saveDbFood() {
-  const name  = document.getElementById('dbName')?.value.trim();
-  const brand = document.getElementById('dbBrand')?.value.trim() || null;
-  const cal   = parseFloat(document.getElementById('dbCal')?.value);
-  const pro   = parseFloat(document.getElementById('dbPro')?.value);
-  const carb  = parseFloat(document.getElementById('dbCarb')?.value);
-  const fat   = parseFloat(document.getElementById('dbFat')?.value);
-  if (!name || isNaN(cal) || isNaN(pro) || isNaN(carb) || isNaN(fat)) {
-    showFormError('dbError', 'Fill in the name and all four nutrition fields.');
+  const r = buildFoodPayload('db', dbFormMode === 'edit' ? dbEditingId : null);
+  if (r.error) {
+    showFormError('dbError', r.error);
     return;
   }
-  if (cal < 0 || pro < 0 || carb < 0 || fat < 0) {
-    showFormError('dbError', 'Nutrition values cannot be negative.');
-    return;
-  }
-
-  const sod = optNum('dbSodium');
-  const fib = optNum('dbFiber');
-  const sug = optNum('dbSugar');
-  if ([sod, fib, sug].some(n => n !== null && (isNaN(n) || n < 0))) {
-    showFormError('dbError', 'Optional nutrition values must be numbers, zero or more.');
-    return;
-  }
-
-  const icon = document.getElementById('dbIcon')?.value || null;
-  const servLabel = document.getElementById('dbServLabel')?.value.trim();
-  const servAmt   = parseFloat(document.getElementById('dbServAmt')?.value);
-  const servUnit  = MASS_UNITS.find(u => u.key === document.getElementById('dbServUnit')?.value);
-  const servGramsNew = servAmt > 0 && servUnit ? servAmt * servUnit.grams : null;
-
-  if (dbFormMode === 'edit') {
-    const id = dbEditingId;
-    const basis = primaryServing(id);
-    const basisGrams = basis ? basis.grams : servGramsNew;
-    if (!basisGrams) {
-      showFormError('dbError', 'Define the serving size; nutrition is entered per serving.');
-      return;
-    }
-    const k = 100 / basisGrams;
-    dbFormMode = null;
-    dbEditingId = null;
-    renderFoodDb();
-    await db.from('foods').update({
-      name, brand, icon,
-      calories: round2(cal * k), protein: round2(pro * k),
-      carbs: round2(carb * k), fat: round2(fat * k),
-      sodium: sod === null ? null : round2(sod * k),
-      fiber:  fib === null ? null : round2(fib * k),
-      sugar:  sug === null ? null : round2(sug * k),
-    }).eq('id', id);
-    if (servLabel && servGramsNew) {
-      await db.from('food_servings').insert({ id: 's' + Date.now(), food_id: id, label: servLabel, grams: servGramsNew });
-    }
-    return;
-  }
-
-  if (!servLabel || !servGramsNew) {
-    showFormError('dbError', 'Define the serving size, e.g. 1 egg weighing 50 g.');
-    return;
-  }
-
-  const k = 100 / servGramsNew;
-  const id = 'f' + Date.now();
   dbFormMode = null;
+  dbEditingId = null;
   renderFoodDb();
-  await db.from('foods').insert({
-    id, name, brand, icon,
-    calories: round2(cal * k), protein: round2(pro * k),
-    carbs: round2(carb * k), fat: round2(fat * k),
-    sodium: sod === null ? null : round2(sod * k),
-    fiber:  fib === null ? null : round2(fib * k),
-    sugar:  sug === null ? null : round2(sug * k),
-  });
-  await db.from('food_servings').insert({ id: 's' + Date.now(), food_id: id, label: servLabel, grams: servGramsNew });
+  await commitFood(r);
 }
 
 function dbImportHTML() {
