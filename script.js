@@ -29,6 +29,18 @@ const WORKOUT_TYPES = [
   { key: 'other', label: '✨ Other',         color: '#64748b', emoji: '✨' },
 ];
 
+// Sakura swaps every workout emoji for a cat
+const SAKURA_EMOJI = { lift: '😾', run: '🐈', cardio: '😻', sport: '😼', cross: '🙀', other: '😸' };
+
+function isSakura() { return document.documentElement.dataset.theme === 'sakura'; }
+
+function workoutEmoji(t) { return isSakura() ? SAKURA_EMOJI[t.key] : t.emoji; }
+
+function workoutLabel(t) {
+  const name = t.label.replace(t.emoji, '').trim();
+  return `${workoutEmoji(t)} ${name}`;
+}
+
 const MASS_UNITS = [
   { key: 'g',  label: 'grams',  grams: 1 },
   { key: 'oz', label: 'oz',     grams: 28.3495 },
@@ -305,6 +317,15 @@ let goalCalcOpen          = false;
 let goalCalcResult        = null;
 let news                  = [];
 let logCopyMsg            = '';
+let pendingAttachment     = null;
+let sweepRunning          = false;
+
+const COMMENT_MAX_AGE_MS = 14 * 24 * 3600 * 1000;
+
+function freshComments() {
+  const cutoff = Date.now() - COMMENT_MAX_AGE_MS;
+  return comments.filter(c => c.ts >= cutoff);
+}
 
 // ─────────────────────────────────────────────
 // Data
@@ -334,6 +355,7 @@ async function loadData() {
   foodLog      = fl || [];
   macroGoals   = mg || [];
   news         = nw || [];
+  sweepExpiredComments();
 
   // Pickers start empty. Only reset a selection if that member no longer exists.
   const exists = id => members.some(x => x.id === id);
@@ -528,7 +550,8 @@ function memberRowHTML(m, cw) {
     const workoutType     = existingWorkout?.workout_type || null;
     const isExtra         = slot > 3;
     const typeAttr        = workoutType ? ` data-workout-type="${workoutType}"` : '';
-    const typeEmoji = workoutType ? (WORKOUT_TYPES.find(t => t.key === workoutType)?.emoji || '') : '';
+    const typeDef = workoutType ? WORKOUT_TYPES.find(t => t.key === workoutType) : null;
+    const typeEmoji = typeDef ? workoutEmoji(typeDef) : '';
     return `<button class="check-btn ${checked ? 'checked' : ''} ${isExtra ? 'extra' : ''}"
               data-action="toggle" data-id="${m.id}" data-slot="${slot}"
               aria-label="Workout ${slot}"${typeAttr}>${typeEmoji}</button>`;
@@ -561,7 +584,7 @@ function memberRowHTML(m, cw) {
           data-member-id="${m.id}"
           data-slot="${pendingTypeInfo.slot}"
           data-type="${t.key}"
-          style="--type-color:${t.color}">${t.label}</button>`).join('')}
+          style="--type-color:${t.color}">${workoutLabel(t)}</button>`).join('')}
       <button class="type-skip" data-action="skip-workout-type">Skip</button>
     </div>` : '';
 
@@ -777,20 +800,34 @@ function renderTrashCompose() {
         <select id="trashPoster" class="strength-picker">${posterOptions}</select>
       </div>
       <textarea id="trashInput" class="trash-input" placeholder="Talk your trash… (Ctrl+Enter to post)" rows="2"></textarea>
+      <div class="attach-row">
+        <input type="file" id="attachInput" accept="image/png,image/jpeg,image/gif,image/webp" hidden/>
+        <button class="attach-btn" data-action="attach-pick">Attach image</button>
+        <span class="attach-name" id="attachName"></span>
+        <button class="comment-del attach-clear" id="attachClear" data-action="attach-clear" aria-label="Remove attachment" style="display:none">&#215;</button>
+      </div>
+      <div class="form-error" id="trashError"></div>
       <button class="trash-post-btn" data-action="post-comment">Post</button>
+      <p class="trash-expiry-note">Posts disappear after 2 weeks.</p>
     </div>`;
 }
 
 function renderTrashFeed() {
   const el = document.getElementById('trash-feed');
   if (!el) return;
-  if (comments.length === 0) {
+  const fresh = freshComments();
+  if (fresh.length === 0) {
     el.innerHTML = `<p class="empty-msg">No trash talk yet.<br/>Be the first to chirp.</p>`;
     return;
   }
-  el.innerHTML = comments.map(c => {
+  el.innerHTML = fresh.map(c => {
     const member = members.find(m => m.id === c.member_id);
     const name   = member ? member.name : 'Unknown';
+    const attach = c.attachment
+      ? `<a href="${db.storage.from('attachments').getPublicUrl(c.attachment).data.publicUrl}" target="_blank" rel="noopener">
+           <img class="comment-attach" src="${db.storage.from('attachments').getPublicUrl(c.attachment).data.publicUrl}" loading="lazy" alt="attachment"/>
+         </a>`
+      : '';
     return `
       <div class="comment-card">
         <div class="comment-avatar">${initials(name)}</div>
@@ -799,7 +836,8 @@ function renderTrashFeed() {
             <span class="comment-name">${esc(name)}</span>
             <span class="comment-time">${timeAgo(c.ts)}</span>
           </div>
-          <div class="comment-text">${esc(c.content)}</div>
+          ${c.content ? `<div class="comment-text">${esc(c.content)}</div>` : ''}
+          ${attach}
         </div>
         <button class="comment-del" data-action="delete-comment" data-comment-id="${c.id}" aria-label="Delete">&#215;</button>
       </div>`;
@@ -1158,16 +1196,68 @@ async function removeCustomLift(liftName) {
 // Actions: Trash Talk
 // ─────────────────────────────────────────────
 
+function clearAttachment() {
+  pendingAttachment = null;
+  const nameEl = document.getElementById('attachName');
+  const clearEl = document.getElementById('attachClear');
+  const input = document.getElementById('attachInput');
+  if (nameEl) nameEl.textContent = '';
+  if (clearEl) clearEl.style.display = 'none';
+  if (input) input.value = '';
+}
+
 async function postComment() {
   const textarea = document.getElementById('trashInput');
   const content  = textarea?.value.trim();
-  if (!content || !trashTalkPoster) return;
+  if (!trashTalkPoster) {
+    showFormError('trashError', 'Pick who you are posting as.');
+    return;
+  }
+  if (!content && !pendingAttachment) return;
+
+  let attachment = null;
+  if (pendingAttachment) {
+    const ext = pendingAttachment.name.split('.').pop().toLowerCase();
+    attachment = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await db.storage.from('attachments')
+      .upload(attachment, pendingAttachment, { contentType: pendingAttachment.type });
+    if (error) {
+      showFormError('trashError', 'Upload failed: ' + error.message);
+      return;
+    }
+  }
+
   if (textarea) textarea.value = '';
-  await db.from('comments').insert({ member_id: trashTalkPoster, content, ts: Date.now() });
+  showFormError('trashError', '');
+  clearAttachment();
+  await db.from('comments').insert({ member_id: trashTalkPoster, content: content || '', ts: Date.now(), attachment });
 }
 
 async function deleteComment(commentId) {
+  const c = comments.find(x => x.id === Number(commentId));
+  if (c?.attachment) {
+    await db.storage.from('attachments').remove([c.attachment]);
+  }
   await db.from('comments').delete().eq('id', Number(commentId));
+}
+
+// Expired comments with files must go through the Storage API (SQL
+// deletion orphans the file), so the app sweeps them on load. Text-only
+// expired comments are purged by the daily pg_cron job.
+async function sweepExpiredComments() {
+  if (sweepRunning) return;
+  const cutoff = Date.now() - COMMENT_MAX_AGE_MS;
+  const expired = comments.filter(c => c.attachment && c.ts < cutoff).slice(0, 10);
+  if (expired.length === 0) return;
+  sweepRunning = true;
+  try {
+    await db.storage.from('attachments').remove(expired.map(c => c.attachment));
+    for (const c of expired) {
+      await db.from('comments').delete().eq('id', c.id);
+    }
+  } finally {
+    sweepRunning = false;
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -2212,6 +2302,8 @@ document.addEventListener('click', e => {
   if (action === 'remove-custom-lift')  removeCustomLift(lift);
 
   if (action === 'post-comment')        postComment();
+  if (action === 'attach-pick')         document.getElementById('attachInput')?.click();
+  if (action === 'attach-clear')        clearAttachment();
   if (action === 'delete-comment')      deleteComment(commentId);
 
   if (action === 'nut-prev-day')        { shiftNutDate(-1); resetNutPanels(); logCopyMsg = ''; renderNutritionBody(); }
@@ -2314,6 +2406,24 @@ document.getElementById('panel-leaderboard').addEventListener('change', e => {
 
 document.getElementById('panel-trash').addEventListener('change', e => {
   if (e.target.id === 'trashPoster') trashTalkPoster = e.target.value || null;
+  if (e.target.id === 'attachInput') {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showFormError('trashError', 'Images only (png, jpg, gif, webp).');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showFormError('trashError', 'Image is over the 5 MB limit.');
+      e.target.value = '';
+      return;
+    }
+    showFormError('trashError', '');
+    pendingAttachment = file;
+    document.getElementById('attachName').textContent = file.name;
+    document.getElementById('attachClear').style.display = '';
+  }
 });
 
 document.getElementById('nutritionPicker').addEventListener('change', e => {
@@ -2367,8 +2477,13 @@ const THEMES = [
   { key: 'midnight', label: 'Midnight', attr: 'dark' },
   { key: 'wii',      label: 'Wii',      attr: 'wii' },
   { key: 'dmg',      label: 'Game Boy', attr: 'dmg' },
-  { key: 'terminal', label: 'Terminal', attr: 'terminal', locked: true },
+  { key: 'terminal', label: 'Terminal', attr: 'terminal', locked: 'wc-terminal-unlocked' },
+  { key: 'sakura',   label: 'Sakura',   attr: 'sakura',   locked: 'wc-sakura-unlocked' },
 ];
+
+function themeUnlocked(t) {
+  return !t.locked || localStorage.getItem(t.locked) === '1';
+}
 
 function terminalUnlocked() {
   return localStorage.getItem('wc-terminal-unlocked') === '1';
@@ -2376,14 +2491,18 @@ function terminalUnlocked() {
 
 function applyTheme(key) {
   let t = THEMES.find(x => x.key === key) || THEMES[0];
-  if (t.locked && !terminalUnlocked()) t = THEMES[0];
+  if (!themeUnlocked(t)) t = THEMES[0];
   const wasDark = document.documentElement.dataset.theme === 'dark';
+  const wasSakura = isSakura();
   if (t.attr) document.documentElement.dataset.theme = t.attr;
   else delete document.documentElement.dataset.theme;
   if (t.attr === 'dark' && !wasDark) {
     document.documentElement.classList.add('neon-on');
     setTimeout(() => document.documentElement.classList.remove('neon-on'), 950);
   }
+  // Workout emojis are theme-dependent, so entering or leaving Sakura
+  // needs a re-render
+  if (isSakura() !== wasSakura) render();
   const sel = document.getElementById('themePicker');
   if (sel) sel.value = t.key;
 }
@@ -2391,7 +2510,7 @@ function applyTheme(key) {
 function populateThemePicker() {
   const sel = document.getElementById('themePicker');
   sel.innerHTML = THEMES
-    .filter(t => !t.locked || terminalUnlocked())
+    .filter(themeUnlocked)
     .map(t => `<option value="${t.key}">${t.label}</option>`).join('');
 }
 
@@ -2450,6 +2569,42 @@ document.querySelector('#sidenav h1').addEventListener('click', () => {
   titleTapTimer = setTimeout(() => { titleTaps = 0; }, 2500);
   if (titleTaps >= 10) { titleTaps = 0; unlockTerminal(); }
 });
+
+const MEOW = ['m', 'e', 'o', 'w'];
+let meowPos = 0;
+
+document.addEventListener('keydown', e => {
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+  if (e.key.length !== 1) return;
+  const k = e.key.toLowerCase();
+  if (k === MEOW[meowPos]) meowPos++;
+  else meowPos = (k === MEOW[0]) ? 1 : 0;
+  if (meowPos === MEOW.length) {
+    meowPos = 0;
+    unlockSakura();
+  }
+});
+
+let weekTaps = 0;
+let weekTapTimer = null;
+document.getElementById('weekLabel').addEventListener('click', () => {
+  weekTaps++;
+  clearTimeout(weekTapTimer);
+  weekTapTimer = setTimeout(() => { weekTaps = 0; }, 2500);
+  if (weekTaps >= 10) { weekTaps = 0; unlockSakura(); }
+});
+
+function unlockSakura() {
+  const first = localStorage.getItem('wc-sakura-unlocked') !== '1';
+  localStorage.setItem('wc-sakura-unlocked', '1');
+  populateThemePicker();
+  applyTheme('sakura');
+  localStorage.setItem('wc-theme', 'sakura');
+  document.documentElement.classList.add('bloom-on');
+  setTimeout(() => document.documentElement.classList.remove('bloom-on'), 950);
+  showToast(first ? 'SAKURA UNLOCKED (=^\uFF65\u03C9\uFF65^=)' : '(=^\uFF65\u03C9\uFF65^=)', true);
+}
 
 function unlockTerminal() {
   const first = !terminalUnlocked();

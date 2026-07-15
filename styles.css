@@ -1667,6 +1667,45 @@ h1 {
   user-select: none;
 }
 
+.attach-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.attach-btn {
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--text-2);
+  background: transparent;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  padding: 4px 11px;
+  cursor: pointer;
+}
+.attach-btn:hover { color: var(--text); border-color: var(--border-3); }
+.attach-name {
+  font-size: 12px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+.comment-attach {
+  display: block;
+  max-width: 100%;
+  max-height: 280px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  margin-top: 8px;
+}
+.trash-expiry-note {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 8px;
+}
+
 /* =========================
    Wii theme: channel menu. Pinstriped background, silver channel
    frames, blue hover pulse, round glossy buttons, message-board
@@ -2219,4 +2258,137 @@ html.neon-on[data-theme="dark"] body {
     50%  { text-shadow: 3px 0 #35e0ff, -3px 0 #ff4fd8; transform: translateX(-2px); }
     100% { text-shadow: 0 0 16px rgba(255,79,216,0.9); transform: none; }
   }
+}
+
+/* =========================
+   Sakura theme (secret): pastel pink, polka dots, rounded
+   everything, cats. Unlocked by those in the know.
+   ========================= */
+[data-theme="sakura"] {
+  color-scheme: light;
+  --bg:       #fdeaf0;
+  --surface:  #fffafc;
+  --surface-2:#fceef4;
+  --text:     #6b4451;
+  --text-2:   #a97f8d;
+  --text-3:   #c9aab5;
+  --border:   rgba(214,140,168,0.28);
+  --border-2: rgba(214,140,168,0.46);
+  --border-3: rgba(214,140,168,0.62);
+  --green:        #e0568f;
+  --green-light:  #ec89b4;
+  --green-bg:     rgba(236,137,180,0.13);
+  --green-border: rgba(236,137,180,0.5);
+  --gold:   #e8956b;
+  --silver: #c9aab5;
+  --bronze: #d98e6b;
+  --red:    #e05c7a;
+  --accent: #f27ba7;
+  --radius:   18px;
+  --radius-sm:12px;
+  --shadow:   0 2px 6px rgba(230,150,180,0.22);
+  --shadow-md:0 6px 16px rgba(230,150,180,0.3);
+}
+[data-theme="sakura"] body {
+  font-family: 'M PLUS Rounded 1c', 'Lexend', sans-serif;
+  background-color: #fdeaf0;
+  background-image:
+    radial-gradient(rgba(255,255,255,0.7) 21%, transparent 22%),
+    radial-gradient(rgba(255,170,200,0.28) 18%, transparent 19%);
+  background-size: 30px 30px, 30px 30px;
+  background-position: 0 0, 15px 15px;
+  background-attachment: fixed;
+}
+[data-theme="sakura"] h1 { color: #d4568c; font-weight: 700; }
+[data-theme="sakura"] #sidenav h1::after {
+  content: '(=^\FF65\3C9\FF65^=)';
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--accent);
+  margin-top: 5px;
+}
+[data-theme="sakura"] .empty-msg::after {
+  content: '(=^-\3C9-^=)';
+  display: block;
+  margin-top: 8px;
+  color: var(--text-3);
+}
+[data-theme="sakura"] .section-header::after {
+  content: ' \2661';
+  color: var(--accent);
+}
+[data-theme="sakura"] .news-ticker {
+  background: #fff4f9;
+  border-color: rgba(214,140,168,0.5);
+  box-shadow: inset 0 0 14px rgba(240,150,190,0.15);
+}
+[data-theme="sakura"] .news-ticker-inner {
+  color: #e0568f;
+  text-shadow: 0 0 5px rgba(240,120,170,0.45);
+}
+[data-theme="sakura"] .lb-bar-fill,
+[data-theme="sakura"] .lb-row:first-child .lb-bar-fill {
+  background: linear-gradient(90deg, #ffb3d1, #f06aa4);
+  box-shadow: 0 0 8px rgba(240,120,170,0.4);
+}
+[data-theme="sakura"] .lift-save,
+[data-theme="sakura"] .trash-post-btn,
+[data-theme="sakura"] .add-submit {
+  background: linear-gradient(90deg, #ff9ec5, #f27ba7);
+  color: #fff;
+  font-weight: 700;
+}
+[data-theme="sakura"] .lift-save:hover,
+[data-theme="sakura"] .trash-post-btn:hover,
+[data-theme="sakura"] .add-submit:hover {
+  opacity: 1;
+  box-shadow: 0 0 12px rgba(242,123,167,0.55);
+}
+[data-theme="sakura"] .tab-btn.active {
+  border-left-color: var(--accent);
+  border-bottom-color: var(--accent);
+  color: #d4568c;
+}
+[data-theme="sakura"] .type-pill { --type-color: #f27ba7; }
+[data-theme="sakura"] .streak-badge,
+[data-theme="sakura"] .pr-badge {
+  background: rgba(232,149,107,0.16);
+  border-color: rgba(232,149,107,0.45);
+}
+[data-theme="sakura"] .cool-badge,
+[data-theme="sakura"] .nudge {
+  background: rgba(240,120,170,0.10);
+  border-color: rgba(240,120,170,0.4);
+}
+[data-theme="sakura"] .cool-badge,
+[data-theme="sakura"] .nudge-label,
+[data-theme="sakura"] .nudge-names,
+[data-theme="sakura"] .check-btn.extra,
+[data-theme="sakura"] .check-btn.extra.checked {
+  color: #d4568c;
+}
+[data-theme="sakura"] .check-btn.extra,
+[data-theme="sakura"] .check-btn.extra.checked {
+  border-color: rgba(240,120,170,0.5);
+  background: rgba(240,120,170,0.1);
+}
+[data-theme="sakura"] .lift-spark { color: #f06aa4; }
+[data-theme="sakura"] .add-submit:hover { background: linear-gradient(90deg, #ff9ec5, #f27ba7); }
+[data-theme="sakura"] :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+[data-theme="sakura"] ::selection {
+  background: rgba(242,123,167,0.4);
+}
+
+html.bloom-on[data-theme="sakura"] body {
+  animation: bloom 0.9s ease-out;
+}
+@keyframes bloom {
+  0%   { filter: saturate(0.2) brightness(1.7); }
+  55%  { filter: saturate(1.35) brightness(1.05); }
+  100% { filter: none; }
 }

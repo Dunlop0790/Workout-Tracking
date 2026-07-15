@@ -165,6 +165,31 @@ alter table foods add column if not exists sugar  numeric;
 -- Club Records opt-in (per member)
 alter table members add column if not exists records_opt_in boolean not null default false;
 
+-- Comment attachments (image path in the attachments bucket)
+alter table comments add column if not exists attachment text;
+
+-- Attachments bucket: public read, 5 MB cap, images only
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('attachments', 'attachments', true, 5242880,
+        array['image/png','image/jpeg','image/gif','image/webp'])
+on conflict (id) do update set public = true, file_size_limit = 5242880,
+  allowed_mime_types = array['image/png','image/jpeg','image/gif','image/webp'];
+
+create policy "attachments read"   on storage.objects for select using (bucket_id = 'attachments');
+create policy "attachments insert" on storage.objects for insert with check (bucket_id = 'attachments');
+create policy "attachments delete" on storage.objects for delete using (bucket_id = 'attachments');
+
+-- Comment expiry: enable the Cron module (Dashboard > Integrations > Cron)
+-- or run: create extension if not exists pg_cron;
+-- Then schedule the daily purge of expired TEXT-ONLY comments.
+-- Comments with attachments are swept by the app through the Storage API,
+-- because deleting storage rows via SQL orphans the files permanently.
+select cron.schedule(
+  'purge-old-comments', '0 6 * * *',
+  $$delete from comments where attachment is null
+      and ts < (extract(epoch from now()) - 14*24*3600) * 1000$$
+);
+
 -- To post news:
 --   insert into news (content, ts)
 --   values ('New: Nutrition tab is live', (extract(epoch from now()) * 1000)::bigint);
