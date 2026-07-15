@@ -823,11 +823,11 @@ function renderTrashFeed() {
   el.innerHTML = fresh.map(c => {
     const member = members.find(m => m.id === c.member_id);
     const name   = member ? member.name : 'Unknown';
-    const attach = c.attachment
-      ? `<a href="${db.storage.from('attachments').getPublicUrl(c.attachment).data.publicUrl}" target="_blank" rel="noopener">
-           <img class="comment-attach" src="${db.storage.from('attachments').getPublicUrl(c.attachment).data.publicUrl}" loading="lazy" alt="attachment"/>
-         </a>`
-      : '';
+    let attach = '';
+    if (c.attachment) {
+      const url = db.storage.from('attachments').getPublicUrl(c.attachment).data.publicUrl;
+      attach = `<a href="${url}" target="_blank" rel="noopener"><img class="comment-attach" src="${url}" loading="lazy" alt="attachment"/></a>`;
+    }
     return `
       <div class="comment-card">
         <div class="comment-avatar">${initials(name)}</div>
@@ -2503,8 +2503,22 @@ function applyTheme(key) {
   // Workout emojis are theme-dependent, so entering or leaving Sakura
   // needs a re-render
   if (isSakura() !== wasSakura) render();
+  syncPetals();
   const sel = document.getElementById('themePicker');
   if (sel) sel.value = t.key;
+}
+
+function syncPetals() {
+  const existing = document.getElementById('petals');
+  if (isSakura() && !existing) {
+    const el = document.createElement('div');
+    el.id = 'petals';
+    el.setAttribute('aria-hidden', 'true');
+    el.innerHTML = Array.from({ length: 12 }, () => '<span class="petal"></span>').join('');
+    document.body.appendChild(el);
+  } else if (!isSakura() && existing) {
+    existing.remove();
+  }
 }
 
 function populateThemePicker() {

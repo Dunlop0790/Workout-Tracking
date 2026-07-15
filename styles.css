@@ -1,11 +1,3 @@
-@font-face {
-  font-family: 'Cookiemonster';
-  src: url('../fonts/Cookiemonster.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
 :root {
   color-scheme: light;
   --border-3:     rgba(0,0,0,0.3);
@@ -2074,14 +2066,6 @@ html.crt-flicker body { animation: crt-flick 0.7s steps(3); }
   --neon:   #35e0ff;
   --neon-2: #ff4fd8;
 }
-[data-theme="dark"] .lb-bar-fill {
-  background: var(--neon);
-  box-shadow: 0 0 6px rgba(53,224,255,0.8), 0 0 14px rgba(53,224,255,0.45);
-}
-[data-theme="dark"] .lb-row:first-child .lb-bar-fill {
-  background: var(--neon-2);
-  box-shadow: 0 0 6px rgba(255,79,216,0.8), 0 0 14px rgba(255,79,216,0.45);
-}
 [data-theme="dark"] .lb-bar-track { background: rgba(255,255,255,0.06); }
 [data-theme="dark"] .lift-spark {
   color: var(--neon);
@@ -2270,7 +2254,7 @@ html.neon-on[data-theme="dark"] body {
 
 /* =========================
    Sakura theme (secret): pastel pink, polka dots, rounded
-   everything, cats. Unlocked by typing "meow".
+   everything, cats. Unlocked by those in the know.
    ========================= */
 [data-theme="sakura"] {
   color-scheme: light;
@@ -2298,7 +2282,7 @@ html.neon-on[data-theme="dark"] body {
   --shadow-md:0 6px 16px rgba(230,150,180,0.3);
 }
 [data-theme="sakura"] body {
-  font-family: 'Cookiemonster', 'M PLUS Rounded 1c', 'Lexend', sans-serif;
+  font-family: 'M PLUS Rounded 1c', 'Lexend', sans-serif;
   background-color: #fdeaf0;
   background-image:
     radial-gradient(rgba(255,255,255,0.7) 21%, transparent 22%),
@@ -2383,13 +2367,71 @@ html.neon-on[data-theme="dark"] body {
   background: rgba(240,120,170,0.1);
 }
 [data-theme="sakura"] .lift-spark { color: #f06aa4; }
-[data-theme="sakura"] .add-submit:hover { background: linear-gradient(90deg, #ff9ec5, #f27ba7); }
 [data-theme="sakura"] :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 [data-theme="sakura"] ::selection {
   background: rgba(242,123,167,0.4);
+}
+
+[data-theme="sakura"] h1,
+[data-theme="sakura"] .section-header,
+[data-theme="sakura"] .stat-num,
+[data-theme="sakura"] .wc-toast,
+[data-theme="sakura"] .wc-toast-big {
+  font-family: 'Hachi Maru Pop', 'M PLUS Rounded 1c', sans-serif;
+}
+[data-theme="sakura"] h1 { font-size: 25px; line-height: 1.4; }
+[data-theme="sakura"] .section-header { font-size: 11px; }
+
+[data-theme="sakura"] .streak-badge::before {
+  content: '\1F43E ';
+}
+
+/* Falling petals: sparse, slow, behind nothing, gone under
+   reduced motion */
+#petals {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 9990;
+}
+.petal {
+  position: absolute;
+  top: -5vh;
+  width: 12px;
+  height: 12px;
+  background: radial-gradient(circle at 30% 30%, #ffd9e7, #f5a3c6);
+  border-radius: 70% 30% 60% 40% / 60% 40% 70% 30%;
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  #petals { display: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .petal { animation: petal-fall linear infinite; }
+  .petal:nth-child(1)  { left: 4%;  animation-duration: 13s; animation-delay: 0s;   width: 10px; height: 10px; }
+  .petal:nth-child(2)  { left: 13%; animation-duration: 17s; animation-delay: 4s; }
+  .petal:nth-child(3)  { left: 22%; animation-duration: 12s; animation-delay: 8s;  width: 14px; height: 14px; }
+  .petal:nth-child(4)  { left: 31%; animation-duration: 18s; animation-delay: 2s;  width: 9px;  height: 9px; }
+  .petal:nth-child(5)  { left: 40%; animation-duration: 14s; animation-delay: 10s; }
+  .petal:nth-child(6)  { left: 49%; animation-duration: 16s; animation-delay: 6s;  width: 11px; height: 11px; }
+  .petal:nth-child(7)  { left: 58%; animation-duration: 13s; animation-delay: 12s; }
+  .petal:nth-child(8)  { left: 66%; animation-duration: 19s; animation-delay: 1s;  width: 13px; height: 13px; }
+  .petal:nth-child(9)  { left: 74%; animation-duration: 15s; animation-delay: 9s;  width: 9px;  height: 9px; }
+  .petal:nth-child(10) { left: 82%; animation-duration: 12s; animation-delay: 5s; }
+  .petal:nth-child(11) { left: 90%; animation-duration: 17s; animation-delay: 13s; width: 14px; height: 14px; }
+  .petal:nth-child(12) { left: 96%; animation-duration: 14s; animation-delay: 7s;  width: 10px; height: 10px; }
+}
+@keyframes petal-fall {
+  0%   { transform: translate(0, -6vh) rotate(0deg);        opacity: 0; }
+  8%   { opacity: 0.75; }
+  30%  { transform: translate(22px, 30vh) rotate(90deg); }
+  55%  { transform: translate(-14px, 58vh) rotate(200deg); }
+  80%  { transform: translate(18px, 86vh) rotate(280deg);   opacity: 0.75; }
+  100% { transform: translate(-6px, 110vh) rotate(360deg);  opacity: 0; }
 }
 
 html.bloom-on[data-theme="sakura"] body {
