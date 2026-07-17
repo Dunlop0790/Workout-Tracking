@@ -42,7 +42,13 @@
       <button class="tab-btn" data-tab="nutrition">Nutrition</button>
       <button class="tab-btn" data-tab="trash">Trash Talk</button>
     </nav>
-    <select id="themePicker" class="theme-toggle" aria-label="Theme"></select>
+    <div class="theme-row">
+      <label class="theme-label" for="themePicker">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18h1a2 2 0 0 0 1.4-3.4c-.8-.8-.3-2.6 1.1-2.6H18a3 3 0 0 0 3-3c0-5-4-9-9-9z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10.5" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/></svg>
+        Theme
+      </label>
+      <select id="themePicker" class="theme-toggle"></select>
+    </div>
   </aside>
 
   <main id="content">
@@ -61,6 +67,7 @@
         <div id="mvp-banner"></div>
         <div id="recap-section"></div>
         <div id="nudge-banner"></div>
+        <div id="vote-card"></div>
       </aside>
     </div>
   </section>

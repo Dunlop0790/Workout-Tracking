@@ -316,6 +316,9 @@ let dbEditingId           = null;
 let goalCalcOpen          = false;
 let goalCalcResult        = null;
 let news                  = [];
+let votes                 = [];
+let voteResponses         = [];
+let voteAs                = null;
 let logCopyMsg            = '';
 let pendingAttachment     = null;
 let sweepRunning          = false;
@@ -333,7 +336,8 @@ function freshComments() {
 
 async function loadData() {
   const [{ data: m }, { data: w }, { data: l }, { data: le }, { data: c },
-         { data: f }, { data: fs }, { data: fl }, { data: mg }, { data: nw }] = await Promise.all([
+         { data: f }, { data: fs }, { data: fl }, { data: mg }, { data: nw },
+         { data: vt }, { data: vr }] = await Promise.all([
     db.from('members').select('*').order('name'),
     db.from('workouts').select('*'),
     db.from('lifts').select('*'),
@@ -344,6 +348,8 @@ async function loadData() {
     db.from('food_log').select('*'),
     db.from('macro_goals').select('*'),
     db.from('news').select('*').order('ts', { ascending: false }),
+    db.from('votes').select('*').order('ts', { ascending: false }),
+    db.from('vote_responses').select('*'),
   ]);
   members      = m  || [];
   workouts     = w  || [];
@@ -355,6 +361,8 @@ async function loadData() {
   foodLog      = fl || [];
   macroGoals   = mg || [];
   news         = nw || [];
+  votes         = vt || [];
+  voteResponses = vr || [];
   sweepExpiredComments();
 
   // Pickers start empty. Only reset a selection if that member no longer exists.
@@ -379,6 +387,8 @@ db.channel('db-changes')
   .on('postgres_changes', { event: '*', schema: 'public', table: 'food_log' },     () => loadData())
   .on('postgres_changes', { event: '*', schema: 'public', table: 'macro_goals' },  () => loadData())
   .on('postgres_changes', { event: '*', schema: 'public', table: 'news' },         () => loadData())
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'votes' },          () => loadData())
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'vote_responses' }, () => loadData())
   .subscribe();
 
 // ─────────────────────────────────────────────
@@ -438,6 +448,7 @@ function renderNewsTicker() {
 function renderTracker() {
   const cw = getMonday();
   renderWeeklyMVP(cw);
+  renderVoteCard();
   renderWeeklyRecap();
   renderNudgeBanner(cw);
   document.getElementById('member-list').innerHTML = members.length === 0
@@ -461,10 +472,10 @@ function renderWeeklyMVP(cw) {
   const names   = leaders.map(m => `<strong>${esc(m.name)}</strong>`).join(', ');
 
   el.innerHTML = `
-    <div class="mvp-stat">
-      <span class="mvp-stat-label">Leading this week</span>
-      <span class="mvp-stat-names">${names}</span>
-      <span class="mvp-stat-count">${max} session${max !== 1 ? 's' : ''}</span>
+    <div class="side-card">
+      <div class="side-card-label">Leading this week</div>
+      <div class="side-card-value">${names}</div>
+      <div class="side-card-sub">${max} session${max !== 1 ? 's' : ''}</div>
     </div>`;
 }
 
@@ -489,9 +500,10 @@ function renderWeeklyRecap() {
   const mvpText    = mvps.length > 0 ? `${mvps.map(m => esc(m.name)).join(', ')} (${maxCount} sessions)` : 'No sessions';
 
   el.innerHTML = `
-    <div class="recap-card">
+    <div class="side-card side-card--flush">
       <button class="recap-toggle" data-action="toggle-recap">
-        Last week: ${hitGoal.length}/${members.length} hit goal ${recapExpanded ? '▴' : '▾'}
+        <span class="side-card-label">Last week</span>
+        <span class="side-card-value">${hitGoal.length}/${members.length} hit goal <span class="recap-caret">${recapExpanded ? '▴' : '▾'}</span></span>
       </button>
       ${recapExpanded ? `
         <div class="recap-body">
@@ -529,10 +541,60 @@ function renderNudgeBanner(cw) {
   else                     prefix = 'Behind on the goal';
 
   banner.innerHTML = `
-    <div class="nudge">
-      <span class="nudge-label">${prefix}:</span>
-      <span class="nudge-names">${behind.map(m => esc(m.name)).join(', ')}</span>
+    <div class="side-card side-card--warn">
+      <div class="side-card-label nudge-label">${prefix}</div>
+      <div class="side-card-value side-card-value--names">${behind.map(m => esc(m.name)).join(', ')}</div>
     </div>`;
+}
+
+// Admin-called votes: the votes table is select-only (posted through
+// the SQL Editor, like news); responses are open to the club.
+function renderVoteCard() {
+  const el = document.getElementById('vote-card');
+  if (!el) return;
+  const vote = votes.find(v => v.open);
+  if (!vote) { el.innerHTML = ''; return; }
+
+  const responses = voteResponses.filter(r => r.vote_id === vote.id);
+  const myChoice = voteAs ? responses.find(r => r.member_id === voteAs)?.choice : null;
+  const counts = vote.options.map((_, i) => responses.filter(r => r.choice === i).length);
+  const maxCount = Math.max(...counts, 1);
+
+  el.innerHTML = `
+    <div class="side-card">
+      <div class="side-card-label">Club vote</div>
+      <div class="side-card-value vote-question">${esc(vote.question)}</div>
+      <select id="votePicker" class="strength-picker vote-picker">
+        <option value="">Voting as…</option>
+        ${members.map(m => `<option value="${m.id}" ${voteAs === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
+      </select>
+      ${vote.options.map((opt, i) => `
+        <button class="vote-opt${myChoice === i ? ' vote-opt--mine' : ''}" data-action="cast-vote" data-choice="${i}">
+          <span class="vote-opt-row">
+            <span>${esc(opt)}</span>
+            <span class="vote-count">${counts[i]}</span>
+          </span>
+          <span class="vote-bar"><span class="lb-bar-fill vote-fill" style="width:${(counts[i] / maxCount) * 100}%"></span></span>
+        </button>`).join('')}
+      <div class="side-card-sub">${responses.length}/${members.length} voted</div>
+      <div class="form-error" id="voteError"></div>
+    </div>`;
+}
+
+async function castVote(choice) {
+  const vote = votes.find(v => v.open);
+  if (!vote) return;
+  if (!voteAs) {
+    showFormError('voteError', 'Pick who you are voting as first.');
+    return;
+  }
+  showFormError('voteError', '');
+  await db.from('vote_responses').upsert({
+    vote_id: vote.id,
+    member_id: voteAs,
+    choice: Number(choice),
+    ts: Date.now(),
+  });
 }
 
 function memberRowHTML(m, cw) {
@@ -2279,6 +2341,7 @@ document.addEventListener('click', e => {
   if (action === 'submit-custom-lift')  doAddCustomLift();
   if (action === 'remove-custom-lift')  removeCustomLift(lift);
 
+  if (action === 'cast-vote')           castVote(btn.dataset.choice);
   if (action === 'post-comment')        postComment();
   if (action === 'attach-pick')         document.getElementById('attachInput')?.click();
   if (action === 'attach-clear')        clearAttachment();
@@ -2380,6 +2443,13 @@ document.getElementById('panel-strength').addEventListener('change', e => {
 document.getElementById('panel-leaderboard').addEventListener('change', e => {
   if (e.target.id === 'htPicker1') { htMember1 = e.target.value || null; renderHeadToHead(); }
   if (e.target.id === 'htPicker2') { htMember2 = e.target.value || null; renderHeadToHead(); }
+});
+
+document.getElementById('panel-tracker').addEventListener('change', e => {
+  if (e.target.id === 'votePicker') {
+    voteAs = e.target.value || null;
+    renderVoteCard();
+  }
 });
 
 document.getElementById('panel-trash').addEventListener('change', e => {

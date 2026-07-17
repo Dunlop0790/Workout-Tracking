@@ -201,6 +201,37 @@ create table if not exists dmg_scores (
 alter table dmg_scores enable row level security;
 create policy "Allow all" on dmg_scores for all using (true) with check (true);
 
+-- Club votes: the votes table is select-only (Corey posts through this
+-- SQL Editor, like news); responses are open to the club.
+create table if not exists votes (
+  id       bigserial primary key,
+  question text not null,
+  options  text[] not null,
+  open     boolean not null default true,
+  ts       bigint not null
+);
+alter table votes enable row level security;
+create policy "Read only" on votes for select using (true);
+
+create table if not exists vote_responses (
+  vote_id   bigint not null references votes(id) on delete cascade,
+  member_id text not null references members(id) on delete cascade,
+  choice    int not null,
+  ts        bigint not null,
+  primary key (vote_id, member_id)
+);
+alter table vote_responses enable row level security;
+create policy "Allow all" on vote_responses for all using (true) with check (true);
+alter publication supabase_realtime add table votes;
+alter publication supabase_realtime add table vote_responses;
+
+-- To open a vote:
+--   insert into votes (question, options, ts)
+--   values ('Pizza or wings for the 1000 lb party?', array['Pizza','Wings','Both'],
+--           (extract(epoch from now()) * 1000)::bigint);
+-- To close one (results disappear from the site once closed):
+--   update votes set open = false where id = 1;
+
 -- To post news:
 --   insert into news (content, ts)
 --   values ('New: Nutrition tab is live', (extract(epoch from now()) * 1000)::bigint);
