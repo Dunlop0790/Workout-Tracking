@@ -34,7 +34,21 @@ const SAKURA_EMOJI = { lift: '😾', run: '🐈', cardio: '😻', sport: '😼',
 
 function isSakura() { return document.documentElement.dataset.theme === 'sakura'; }
 
-function workoutEmoji(t) { return isSakura() ? SAKURA_EMOJI[t.key] : t.emoji; }
+// Workout indicators are theme-dependent: cat emojis in Sakura,
+// masked pixel-art icons in Game Boy, standard emojis elsewhere.
+function emojiMode() {
+  const th = document.documentElement.dataset.theme;
+  if (th === 'sakura') return 'cat';
+  if (th === 'dmg') return 'px';
+  return 'emoji';
+}
+
+function workoutEmoji(t) {
+  const mode = emojiMode();
+  if (mode === 'cat') return SAKURA_EMOJI[t.key];
+  if (mode === 'px') return `<span class="px-icon" style="--px:url('icons/${t.key}.png')"></span>`;
+  return t.emoji;
+}
 
 function workoutLabel(t) {
   const name = t.label.replace(t.emoji, '').trim();
@@ -2541,16 +2555,16 @@ function applyTheme(key) {
   let t = THEMES.find(x => x.key === key) || THEMES[0];
   if (!themeUnlocked(t)) t = THEMES[0];
   const wasDark = document.documentElement.dataset.theme === 'dark';
-  const wasSakura = isSakura();
+  const wasMode = emojiMode();
   if (t.attr) document.documentElement.dataset.theme = t.attr;
   else delete document.documentElement.dataset.theme;
   if (t.attr === 'dark' && !wasDark) {
     document.documentElement.classList.add('neon-on');
     setTimeout(() => document.documentElement.classList.remove('neon-on'), 950);
   }
-  // Workout emojis are theme-dependent, so entering or leaving Sakura
-  // needs a re-render
-  if (isSakura() !== wasSakura) render();
+  // Workout indicators are theme-dependent, so mode changes need a
+  // re-render
+  if (emojiMode() !== wasMode) render();
   syncPetals();
   const sel = document.getElementById('themePicker');
   if (sel) sel.value = t.key;

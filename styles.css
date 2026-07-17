@@ -2662,3 +2662,17 @@ html.bloom-on[data-theme="sakura"] body {
   text-align: center;
   line-height: 1.6;
 }
+
+/* =========================
+   Pixel workout icons (Game Boy theme): masked PNGs tinted to the
+   current ink color, rendered at native 16px for crisp pixels
+   ========================= */
+.px-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  vertical-align: -3px;
+  background-color: currentColor;
+  -webkit-mask: var(--px) center / 16px 16px no-repeat;
+  mask: var(--px) center / 16px 16px no-repeat;
+}
