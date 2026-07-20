@@ -1,5 +1,5 @@
 // ============================================================
-// Supabase config — paste your values from:
+// Supabase config - paste your values from:
 //   app.supabase.com → your project → Settings → API
 // ============================================================
 const SUPABASE_URL      = 'https://xyaxmifejuhpbprshlpk.supabase.co';   // e.g. https://xyzxyz.supabase.co

@@ -56,13 +56,12 @@
   border-color: rgba(234,179,8,0.4);
 }
 [data-theme="dark"] .cool-badge,
-[data-theme="dark"] .nudge {
+[data-theme="dark"] .side-card--warn {
   background: rgba(234,88,12,0.12);
   border-color: rgba(234,88,12,0.4);
 }
 [data-theme="dark"] .cool-badge,
 [data-theme="dark"] .nudge-label,
-[data-theme="dark"] .nudge-names,
 [data-theme="dark"] .check-btn.extra,
 [data-theme="dark"] .check-btn.extra.checked {
   color: #fdba74;
@@ -645,28 +644,6 @@ h1 {
 /* =========================
    Nudge banner (inner label color only)
    ========================= */
-.nudge {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  padding: 9px 13px;
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  border-radius: var(--radius);
-  margin-bottom: 10px;
-  font-size: 13px;
-}
-
-.nudge-label {
-  font-weight: 600;
-  color: #9a3412;
-}
-
-.nudge-names {
-  color: #9a3412;
-}
-
 /* =========================
    Strength tab
    ========================= */
@@ -2003,13 +1980,12 @@ h1 {
   border-color: rgba(43,48,34,0.5);
 }
 [data-theme="dmg"] .cool-badge,
-[data-theme="dmg"] .nudge {
+[data-theme="dmg"] .side-card--warn {
   background: rgba(43,48,34,0.10);
   border-color: rgba(43,48,34,0.45);
 }
 [data-theme="dmg"] .cool-badge,
 [data-theme="dmg"] .nudge-label,
-[data-theme="dmg"] .nudge-names,
 [data-theme="dmg"] .check-btn.extra,
 [data-theme="dmg"] .check-btn.extra.checked {
   color: #2b3022;
@@ -2074,13 +2050,12 @@ h1 {
 [data-theme="terminal"] .streak-badge,
 [data-theme="terminal"] .pr-badge,
 [data-theme="terminal"] .cool-badge,
-[data-theme="terminal"] .nudge {
+[data-theme="terminal"] .side-card--warn {
   background: rgba(51,255,102,0.08);
   border-color: rgba(51,255,102,0.4);
 }
 [data-theme="terminal"] .cool-badge,
 [data-theme="terminal"] .nudge-label,
-[data-theme="terminal"] .nudge-names,
 [data-theme="terminal"] .check-btn.extra,
 [data-theme="terminal"] .check-btn.extra.checked {
   color: #33ff66;
@@ -2470,13 +2445,12 @@ html.neon-on[data-theme="dark"] body {
   border-color: rgba(232,149,107,0.45);
 }
 [data-theme="sakura"] .cool-badge,
-[data-theme="sakura"] .nudge {
+[data-theme="sakura"] .side-card--warn {
   background: rgba(240,120,170,0.10);
   border-color: rgba(240,120,170,0.4);
 }
 [data-theme="sakura"] .cool-badge,
 [data-theme="sakura"] .nudge-label,
-[data-theme="sakura"] .nudge-names,
 [data-theme="sakura"] .check-btn.extra,
 [data-theme="sakura"] .check-btn.extra.checked {
   color: #d4568c;
@@ -2565,7 +2539,7 @@ html.bloom-on[data-theme="sakura"] body {
    wide enough to have the right margin.
    ========================= */
 #gb-game { display: none; }
-@media (min-width: 1500px) {
+@media (min-width: 1760px) {
   [data-theme="dmg"] #gb-game {
     display: block;
     position: fixed;
@@ -2575,7 +2549,7 @@ html.bloom-on[data-theme="sakura"] body {
     transform: translateX(-50%);
     top: 50%;
     translate: 0 -50%;
-    width: 268px;
+    width: 316px;
     padding: 16px 18px;
     background: var(--surface);
     border: 2px solid var(--text);
@@ -2593,8 +2567,8 @@ html.bloom-on[data-theme="sakura"] body {
 }
 #gbCanvas {
   display: block;
-  width: 220px;
-  height: 396px;
+  width: 260px;
+  height: 468px;
   margin: 0 auto;
   border: 2px solid var(--text);
   background: var(--bg);

@@ -55,6 +55,13 @@ function workoutLabel(t) {
   return `${workoutEmoji(t)} ${name}`;
 }
 
+// Club rules and limits
+const WEEKLY_GOAL = 3;
+// The behind-on-goal card stays quiet until midweek; nagging on a
+// Monday helps nobody
+const NUDGE_START_DAY = 3;
+const MAX_ATTACH_BYTES = 5 * 1024 * 1024;
+
 const MASS_UNITS = [
   { key: 'g',  label: 'grams',  grams: 1 },
   { key: 'oz', label: 'oz',     grams: 28.3495 },
@@ -148,7 +155,7 @@ function calcStreak(memberId, workoutData) {
   while (true) {
     const key   = getMonday(cursor);
     const count = weekCounts[key] || 0;
-    if (count >= 3)      { streak++; }
+    if (count >= WEEKLY_GOAL) { streak++; }
     else if (key === cw) { /* in-progress week */ }
     else                 { break; }
     cursor.setDate(cursor.getDate() - 7);
@@ -430,7 +437,7 @@ function renderHeader() {
   const cw      = getMonday();
   const total   = members.length;
   const hitGoal = members.filter(m =>
-    workouts.filter(w => w.member_id === m.id && w.week_start === cw).length >= 3
+    workouts.filter(w => w.member_id === m.id && w.week_start === cw).length >= WEEKLY_GOAL
   ).length;
   const stat = document.getElementById('teamStat');
   if (total === 0) { stat.innerHTML = ''; return; }
@@ -506,7 +513,7 @@ function renderWeeklyRecap() {
   const memberStats = members.map(m => ({
     ...m, count: workouts.filter(w => w.member_id === m.id && w.week_start === lw).length
   }));
-  const hitGoal    = memberStats.filter(m => m.count >= 3);
+  const hitGoal    = memberStats.filter(m => m.count >= WEEKLY_GOAL);
   const maxCount   = Math.max(...memberStats.map(m => m.count));
   const mvps       = maxCount > 0 ? memberStats.filter(m => m.count === maxCount) : [];
   const hitGoalIds = new Set(hitGoal.map(m => m.id));
@@ -541,7 +548,7 @@ function renderNudgeBanner(cw) {
   const banner = document.getElementById('nudge-banner');
   if (!banner) return;
   const dayOfWeek = new Date().getDay();
-  const showDay   = dayOfWeek === 0 || dayOfWeek >= 3;
+  const showDay   = dayOfWeek === 0 || dayOfWeek >= NUDGE_START_DAY;
   if (!showDay || members.length === 0) { banner.innerHTML = ''; return; }
 
   const behind = members.filter(m =>
@@ -578,7 +585,7 @@ function renderVoteCard() {
     <div class="side-card">
       <div class="side-card-label">Club vote</div>
       <div class="side-card-value vote-question">${esc(vote.question)}</div>
-      <select id="votePicker" class="strength-picker vote-picker">
+      <select id="votePicker" class="strength-picker vote-picker" aria-label="Voting as">
         <option value="">Voting as…</option>
         ${members.map(m => `<option value="${m.id}" ${voteAs === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
       </select>
@@ -614,7 +621,7 @@ async function castVote(choice) {
 function memberRowHTML(m, cw) {
   const myWorkouts = workouts.filter(w => w.member_id === m.id && w.week_start === cw);
   const count      = myWorkouts.length;
-  const done       = count >= 3;
+  const done       = count >= WEEKLY_GOAL;
   const streak     = calcStreak(m.id, workouts);
   const removing   = confirmingId === m.id;
   const maxSlot    = Math.max(3, count + 1);
@@ -624,7 +631,7 @@ function memberRowHTML(m, cw) {
     const existingWorkout = myWorkouts.find(w => w.slot === slot);
     const checked         = !!existingWorkout;
     const workoutType     = existingWorkout?.workout_type || null;
-    const isExtra         = slot > 3;
+    const isExtra         = slot > WEEKLY_GOAL;
     const typeAttr        = workoutType ? ` data-workout-type="${workoutType}"` : '';
     const typeDef = workoutType ? WORKOUT_TYPES.find(t => t.key === workoutType) : null;
     const typeEmoji = typeDef ? workoutEmoji(typeDef) : '';
@@ -668,7 +675,7 @@ function memberRowHTML(m, cw) {
     <div class="member-row ${done ? 'done' : ''}" data-member-id="${m.id}">
       <div class="member-info">
         <div class="member-name">${done ? '&#10003; ' : ''}${esc(m.name)}</div>
-        <div class="member-meta"><span class="member-sub">${count}/3 this week${done ? ' · goal met' : ''}${extraLabel}</span>${streakHtml}${coolHtml}</div>
+        <div class="member-meta"><span class="member-sub">${count}/${WEEKLY_GOAL} this week${done ? ' · goal met' : ''}${extraLabel}</span>${streakHtml}${coolHtml}</div>
       </div>
       <div class="checks">${checksHtml}</div>
       ${removeHtml}
@@ -959,7 +966,7 @@ function renderClubRecords() {
         <div class="record-lift">${esc(label)}</div>
         <div class="record-holder">${holder ? esc(holder.name) : 'No entries yet'}</div>
       </div>
-      <div class="record-val">${best > 0 ? Math.round(best) + '<span class="lift-unit">lb</span>' : '—'}</div>
+      <div class="record-val">${best > 0 ? Math.round(best) + '<span class="lift-unit">lb</span>' : '-'}</div>
     </div>`;
 
   const big4 = DEFAULT_LIFTS.map(name => {
@@ -2476,8 +2483,8 @@ document.getElementById('panel-trash').addEventListener('change', e => {
       e.target.value = '';
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      showFormError('trashError', 'Image is over the 5 MB limit.');
+    if (file.size > MAX_ATTACH_BYTES) {
+      showFormError('trashError', `Image is over the ${MAX_ATTACH_BYTES / 1024 / 1024} MB limit.`);
       e.target.value = '';
       return;
     }
@@ -2774,7 +2781,7 @@ function buildSaverSlides() {
   const cw = getMonday();
   const slides = [];
   const hit = members.filter(m =>
-    workouts.filter(w => w.member_id === m.id && w.week_start === cw).length >= 3
+    workouts.filter(w => w.member_id === m.id && w.week_start === cw).length >= WEEKLY_GOAL
   ).length;
   if (members.length > 0) slides.push(`${hit}/${members.length} hit goal this week`);
 
@@ -2829,7 +2836,7 @@ resetSaverTimer();
 
 const GB_W = 10;
 const GB_H = 18;
-const GB_CELL = 22;
+const GB_CELL = 26;
 const GB_INK = '#2b3022';
 const GB_MID = '#7a8163';
 const GB_BG  = '#c2c8a5';
@@ -2995,7 +3002,7 @@ function gbGameOver() {
 
 function gbVisible() {
   return document.documentElement.dataset.theme === 'dmg' &&
-    window.matchMedia('(min-width: 1500px)').matches;
+    window.matchMedia('(min-width: 1760px)').matches;
 }
 
 function gbDraw() {
@@ -3019,7 +3026,7 @@ function gbDraw() {
     // Next piece ghost in the top-right corner
     GB_PIECES[gb.next.type][0].forEach(([x, y]) => {
       ctx.fillStyle = GB_MID;
-      ctx.fillRect((GB_W - 4 + x) * GB_CELL + 7, y * GB_CELL + 7, 8, 8);
+      ctx.fillRect((GB_W - 4 + x) * GB_CELL + 8, y * GB_CELL + 8, 10, 10);
     });
   }
 }
