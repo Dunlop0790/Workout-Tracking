@@ -2638,6 +2638,34 @@ html.bloom-on[data-theme="sakura"] body {
 }
 
 /* =========================
+   Wii cursor: original hand pointer drawn as inline SVG (not the
+   uploaded third-party pack). Hotspot at the fingertip (11, 3).
+   ========================= */
+[data-theme="wii"],
+[data-theme="wii"] body {
+  cursor: url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%2032%2032%22%3E%0A%3Cg%20fill%3D%22%23ffffff%22%20stroke%3D%22%233d474c%22%20stroke-width%3D%221.5%22%20stroke-linejoin%3D%22round%22%20stroke-linecap%3D%22round%22%3E%0A%3Cpath%20d%3D%22M11.5%203%0AC10.3%203%209.4%203.9%209.4%205.1%0AV15.2%0AL7.4%2013.4%0AC6.6%2012.7%205.4%2012.7%204.7%2013.5%0AC4%2014.2%204%2015.4%204.7%2016.1%0AL10.2%2022.6%0AC11.1%2024.4%2013%2025.6%2015.1%2025.6%0AH17.9%0AC21%2025.6%2023.5%2023.1%2023.5%2020%0AV14.4%0AC23.5%2013.4%2022.7%2012.6%2021.7%2012.6%0AC21.3%2012.6%2021%2012.7%2020.7%2012.9%0AV12%0AC20.7%2011%2019.9%2010.2%2018.9%2010.2%0AC18.5%2010.2%2018.2%2010.3%2017.9%2010.5%0AV9.6%0AC17.9%208.6%2017.1%207.8%2016.1%207.8%0AC15.8%207.8%2015.4%207.9%2015.1%208.1%0AV5.1%0AC15.1%203.9%2014.2%203%2013%203%0AZ%22%20transform%3D%22translate%28-0.3%200%29%22/%3E%0A%3C/g%3E%0A%3C/svg%3E') 11 3, default;
+}
+[data-theme="wii"] a,
+[data-theme="wii"] button,
+[data-theme="wii"] select,
+[data-theme="wii"] .tab-btn,
+[data-theme="wii"] .member-row,
+[data-theme="wii"] .check-btn,
+[data-theme="wii"] .lb-row,
+[data-theme="wii"] .vote-opt,
+[data-theme="wii"] [data-action] {
+  cursor: url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%2032%2032%22%3E%0A%3Cg%20fill%3D%22%23eaf6fd%22%20stroke%3D%22%231287b6%22%20stroke-width%3D%221.5%22%20stroke-linejoin%3D%22round%22%20stroke-linecap%3D%22round%22%3E%0A%3Cpath%20d%3D%22M11.5%203%0AC10.3%203%209.4%203.9%209.4%205.1%0AV15.2%0AL7.4%2013.4%0AC6.6%2012.7%205.4%2012.7%204.7%2013.5%0AC4%2014.2%204%2015.4%204.7%2016.1%0AL10.2%2022.6%0AC11.1%2024.4%2013%2025.6%2015.1%2025.6%0AH17.9%0AC21%2025.6%2023.5%2023.1%2023.5%2020%0AV14.4%0AC23.5%2013.4%2022.7%2012.6%2021.7%2012.6%0AC21.3%2012.6%2021%2012.7%2020.7%2012.9%0AV12%0AC20.7%2011%2019.9%2010.2%2018.9%2010.2%0AC18.5%2010.2%2018.2%2010.3%2017.9%2010.5%0AV9.6%0AC17.9%208.6%2017.1%207.8%2016.1%207.8%0AC15.8%207.8%2015.4%207.9%2015.1%208.1%0AV5.1%0AC15.1%203.9%2014.2%203%2013%203%0AZ%22%20transform%3D%22translate%28-0.3%200%29%22/%3E%0A%3C/g%3E%0A%3C/svg%3E') 11 3, pointer;
+}
+[data-theme="wii"] input,
+[data-theme="wii"] textarea {
+  cursor: text;
+}
+[data-theme="wii"] button:disabled,
+[data-theme="wii"] .check-btn:disabled {
+  cursor: url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2232%22%20height%3D%2232%22%20viewBox%3D%220%200%2032%2032%22%3E%0A%3Cg%20fill%3D%22%23ffffff%22%20stroke%3D%22%233d474c%22%20stroke-width%3D%221.5%22%20stroke-linejoin%3D%22round%22%20stroke-linecap%3D%22round%22%3E%0A%3Cpath%20d%3D%22M11.5%203%0AC10.3%203%209.4%203.9%209.4%205.1%0AV15.2%0AL7.4%2013.4%0AC6.6%2012.7%205.4%2012.7%204.7%2013.5%0AC4%2014.2%204%2015.4%204.7%2016.1%0AL10.2%2022.6%0AC11.1%2024.4%2013%2025.6%2015.1%2025.6%0AH17.9%0AC21%2025.6%2023.5%2023.1%2023.5%2020%0AV14.4%0AC23.5%2013.4%2022.7%2012.6%2021.7%2012.6%0AC21.3%2012.6%2021%2012.7%2020.7%2012.9%0AV12%0AC20.7%2011%2019.9%2010.2%2018.9%2010.2%0AC18.5%2010.2%2018.2%2010.3%2017.9%2010.5%0AV9.6%0AC17.9%208.6%2017.1%207.8%2016.1%207.8%0AC15.8%207.8%2015.4%207.9%2015.1%208.1%0AV5.1%0AC15.1%203.9%2014.2%203%2013%203%0AZ%22%20transform%3D%22translate%28-0.3%200%29%22/%3E%0A%3C/g%3E%0A%3C/svg%3E') 11 3, not-allowed;
+}
+
+/* =========================
    Pixel workout icons (Game Boy theme): masked PNGs tinted to the
    current ink color, rendered at native 16px for crisp pixels
    ========================= */
