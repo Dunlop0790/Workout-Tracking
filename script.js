@@ -400,7 +400,7 @@ async function loadData() {
   // A stored identity may reference a deleted member
   if (sideIdentity && !members.some(m => m.id === sideIdentity)) sideIdentity = null;
   sweepExpiredComments();
-  awardCompletedQuests();
+  syncQuestCompletions();
 
   // Pickers start empty. Only reset a selection if that member no longer exists.
   const exists = id => members.some(x => x.id === id);
@@ -570,6 +570,12 @@ function renderThisWeek(cw) {
 // browsers from double-awarding.
 // ─────────────────────────────────────────────
 
+const QUEST_MODE_LABELS = {
+  individual: 'Solo',
+  collective: 'Group total',
+  each:       'Group, each',
+};
+
 const QUEST_METRIC_LABELS = {
   sessions: 'sessions',
   variety:  'workout types',
@@ -608,52 +614,92 @@ function memberQuestValue(ch, memberId) {
 }
 
 // Collective quests pool every participant's value into one bar
-function questProgress(ch, memberId) {
-  const target = ch.target;
+// Group-level progress. Individual quests have no shared bar, so this
+// returns null for them.
+//
+//   collective  everyone's work is pooled into one number
+//   each        every member of the party must hit the target on their
+//               own; the bar counts finished members
+function questGroupProgress(ch) {
+  const parts = questParticipants(ch);
   if (ch.mode === 'collective') {
-    const current = questParticipants(ch).reduce((sum, m) => sum + memberQuestValue(ch, m.id), 0);
-    return { current, target, done: current >= target };
+    const current = parts.reduce((sum, m) => sum + memberQuestValue(ch, m.id), 0);
+    return { current, target: ch.target, unit: QUEST_METRIC_LABELS[ch.metric], done: current >= ch.target };
   }
-  const current = memberId ? memberQuestValue(ch, memberId) : 0;
-  return { current, target, done: current >= target };
+  if (ch.mode === 'each') {
+    const finished = parts.filter(m => memberQuestValue(ch, m.id) >= ch.target).length;
+    return { current: finished, target: parts.length, unit: 'members done',
+             done: parts.length > 0 && finished === parts.length };
+  }
+  return null;
 }
 
-// Writes completion rows for anyone who has met the target. Runs after
-// every data load; the composite primary key makes repeats harmless.
-async function awardCompletedQuests() {
+// One member's own progress toward the target
+function questMemberProgress(ch, memberId) {
+  const current = memberId ? memberQuestValue(ch, memberId) : 0;
+  return { current, target: ch.target, unit: QUEST_METRIC_LABELS[ch.metric], done: current >= ch.target };
+}
+
+// Whether a given member currently qualifies for the badge. Group modes
+// are all-or-nothing: nobody is finished until the party is.
+function memberQualifies(ch, memberId) {
+  if (ch.mode === 'collective' || ch.mode === 'each') {
+    const group = questGroupProgress(ch);
+    return !!group && group.done;
+  }
+  return questMemberProgress(ch, memberId).done;
+}
+
+// Keeps completion rows honest in both directions. A mis-logged workout
+// that gets corrected pulls the badge back, so a quest can return to in
+// progress. Closed quests are frozen: their badges are permanent no
+// matter what happens to the underlying data afterwards.
+async function syncQuestCompletions() {
   if (awardRunning) return;
-  const pending = [];
+  const toAdd = [];
+  const toRemove = [];
+
   challenges.filter(ch => ch.open).forEach(ch => {
     const earned = questCompletedIds(ch);
-    const collectiveDone = ch.mode === 'collective' && questProgress(ch).done;
-    questParticipants(ch).forEach(m => {
-      if (earned.has(m.id)) return;
-      const done = ch.mode === 'collective' ? collectiveDone : questProgress(ch, m.id).done;
-      if (done) pending.push({ challenge_id: ch.id, member_id: m.id, ts: Date.now() });
+    const party  = questParticipants(ch);
+    party.forEach(m => {
+      const qualifies = memberQualifies(ch, m.id);
+      if (qualifies && !earned.has(m.id)) {
+        toAdd.push({ challenge_id: ch.id, member_id: m.id, ts: Date.now() });
+      } else if (!qualifies && earned.has(m.id)) {
+        toRemove.push({ challenge_id: ch.id, member_id: m.id });
+      }
     });
   });
-  if (pending.length === 0) return;
+
+  if (toAdd.length === 0 && toRemove.length === 0) return;
   awardRunning = true;
   try {
-    const { error } = await db.from('challenge_completions').insert(pending);
-    if (!error) {
-      pending.forEach(p => challengeCompletions.push(p));
-      renderQuestBoard();
-      renderTrophyWall();
-      const mine = pending.find(p => p.member_id === sideIdentity);
-      if (mine) {
-        const ch = challenges.find(c => c.id === mine.challenge_id);
-        showToast(`QUEST COMPLETE: ${ch ? ch.title : ''}`, true);
+    if (toAdd.length > 0) {
+      const { error } = await db.from('challenge_completions').insert(toAdd);
+      if (!error) toAdd.forEach(p => challengeCompletions.push(p));
+    }
+    for (const r of toRemove) {
+      const { error } = await db.from('challenge_completions')
+        .delete()
+        .eq('challenge_id', r.challenge_id)
+        .eq('member_id', r.member_id);
+      if (!error) {
+        challengeCompletions = challengeCompletions.filter(c =>
+          !(c.challenge_id === r.challenge_id && c.member_id === r.member_id));
       }
+    }
+    renderTracker();
+    const mine = toAdd.find(p => p.member_id === sideIdentity);
+    if (mine) {
+      const ch = challenges.find(c => c.id === mine.challenge_id);
+      showToast(`QUEST COMPLETE: ${ch ? ch.title : ''}`, true);
     }
   } finally {
     awardRunning = false;
   }
 }
 
-// Badge art is a silhouette masked to the theme's ink color, so one
-// file stays legible on every theme instead of vanishing on the dark
-// ones. Flat art only; full-colour art would be flattened by the mask.
 function badgeHTML(ch, size) {
   const cls = size === 'lg' ? 'quest-badge quest-badge--lg' : 'quest-badge';
   if (ch.badge) {
@@ -696,10 +742,18 @@ function questCardHTML(ch) {
   const full         = ch.max_participants != null && participants.length >= ch.max_participants && !joined;
   const expanded     = expandedQuestId === ch.id;
 
-  const prog   = questProgress(ch, sideIdentity);
-  const unit   = ch.metric === 'lift' ? QUEST_METRIC_LABELS.lift : QUEST_METRIC_LABELS[ch.metric];
-  const pct    = Math.min(100, (prog.current / prog.target) * 100);
-  const showBar = ch.mode === 'collective' || joined;
+  const group = questGroupProgress(ch);
+  const mine  = joined ? questMemberProgress(ch, sideIdentity) : null;
+  const bar = (label, p) => {
+    const pct = p.target > 0 ? Math.min(100, (p.current / p.target) * 100) : 0;
+    return `
+      <div class="quest-progress-row">
+        <span>${label}</span>
+        <span>${Math.round(p.current)}/${p.target} ${p.unit}</span>
+      </div>
+      <span class="vote-bar"><span class="lb-bar-fill vote-fill" style="width:${pct}%"></span></span>`;
+  };
+  const groupLabel = ch.mode === 'each' ? 'Party progress' : 'Club progress';
   const spots  = ch.max_participants != null
     ? `${participants.length}/${ch.max_participants} joined`
     : `${participants.length} joined`;
@@ -714,20 +768,17 @@ function questCardHTML(ch) {
         <span class="quest-head-text">
           <span class="quest-title">${esc(ch.title)}</span>
           <span class="quest-meta">
-            <span class="quest-chip">${ch.mode === 'collective' ? 'Group' : 'Solo'}</span>
+            <span class="quest-chip">${QUEST_MODE_LABELS[ch.mode] || 'Solo'}</span>
             ${spots} \u00b7 ${timeText}
           </span>
         </span>
         <span class="recap-caret">${expanded ? '\u25b4' : '\u25be'}</span>
       </button>
 
-      ${showBar ? `
+      ${(group || mine) ? `
         <div class="quest-progress">
-          <div class="quest-progress-row">
-            <span>${ch.mode === 'collective' ? 'Club progress' : 'Your progress'}</span>
-            <span>${Math.round(prog.current)}/${prog.target} ${unit}</span>
-          </div>
-          <span class="vote-bar"><span class="lb-bar-fill vote-fill" style="width:${pct}%"></span></span>
+          ${group ? bar(groupLabel, group) : ''}
+          ${mine ? bar('Your progress', mine) : ''}
         </div>` : ''}
 
       ${iEarned ? `<div class="quest-earned">Completed${ch.reward ? `. See Corey for: ${esc(ch.reward)}` : ''}</div>` : ''}
@@ -740,7 +791,10 @@ function questCardHTML(ch) {
             <span class="side-card-label">Party</span>
             ${participants.length === 0
               ? 'Nobody has joined yet'
-              : participants.map(m => `<span class="quest-member${earned.has(m.id) ? ' quest-member--done' : ''}">${esc(m.name)}${earned.has(m.id) ? ' \u2713' : ''}</span>`).join('')}
+              : participants.map(m => {
+                  const personallyDone = questMemberProgress(ch, m.id).done;
+                  return `<span class="quest-member${personallyDone ? ' quest-member--done' : ''}">${esc(m.name)}${personallyDone ? ' \u2713' : ''}</span>`;
+                }).join('')}
           </div>
           ${joined
             ? `<button class="quest-btn quest-btn--leave" data-action="leave-quest" data-quest-id="${ch.id}">Leave quest</button>`
@@ -799,7 +853,7 @@ async function joinQuest(questId) {
     alert('Joining the quest failed: ' + error.message);
     return;
   }
-  awardCompletedQuests();
+  syncQuestCompletions();
 }
 
 async function leaveQuest(questId) {

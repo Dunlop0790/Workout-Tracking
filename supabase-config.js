@@ -319,9 +319,15 @@ alter publication supabase_realtime add table challenge_completions;
 --
 --   mode = 'individual'   everyone is tracked separately; each person
 --                         who reaches the target earns the badge
---   mode = 'collective'   everyone who joined is pooled into one bar;
---                         when the club total reaches the target, the
---                         whole party earns the badge together
+--   mode = 'collective'   everyone who joined is pooled into one bar,
+--                         so the party's work adds up; when the total
+--                         reaches the target, everyone earns the badge
+--   mode = 'each'         every member of the party must reach the
+--                         target on their own, and nobody earns the
+--                         badge until all of them have. Use this for
+--                         'we all log a cardio' style quests, where
+--                         'collective' would finish as soon as one
+--                         person logged one.
 --
 -- Leave reward out entirely when there is no physical prize.
 -- Leave max_participants out entirely for an unlimited party.
@@ -351,6 +357,15 @@ alter publication supabase_realtime add table challenge_completions;
 --           '2026-08-01', '2026-08-31',
 --           (extract(epoch from now()) * 1000)::bigint);
 
+-- TEMPLATE 2b: group quest where everyone has to pull their own weight
+--   insert into challenges (title, description, mode, metric,
+--                           metric_detail, target, starts_on, ends_on, ts)
+--   values ('No One Left Behind',
+--           'Every member of the party logs a cardio session.',
+--           'each', 'sessions', 'cardio', 1,
+--           '2026-08-01', '2026-08-31',
+--           (extract(epoch from now()) * 1000)::bigint);
+
 -- TEMPLATE 3: variety quest, log five different workout types
 --   insert into challenges (title, description, badge, mode, metric,
 --                           metric_detail, target, starts_on, ends_on, ts)
@@ -372,33 +387,68 @@ alter publication supabase_realtime add table challenge_completions;
 
 -- ─────────────────────────────────────────────
 -- MANAGING QUESTS
+--
+-- Every command below can target a quest by its title instead of its
+-- id, so you never have to look an id up. Titles are easier to
+-- remember and read back later:
+--
+--   where title = 'No One Left Behind'   works everywhere
+--   where id = 3                          also works
+--
+-- Titles are matched exactly, including capitals and spaces. To make
+-- sure two quests can never share a title, run this once (it fails if
+-- duplicates already exist, so clear old test quests first):
+--   alter table challenges add constraint challenges_title_unique
+--     unique (title);
 -- ─────────────────────────────────────────────
 
--- See every quest and its id, newest first. Run this when you need an
--- id for the commands below.
---   select id, title, mode, open, starts_on, ends_on from challenges
---   order by ts desc;
+-- See every quest, newest first
+--   select title, mode, metric, target, open, starts_on, ends_on
+--   from challenges order by ts desc;
 
--- See who has earned a quest badge
---   select c.title, m.name
---   from challenge_completions cc
---   join challenges c on c.id = cc.challenge_id
---   join members m on m.id = cc.member_id
---   where cc.challenge_id = 1;
+-- See who has joined a quest and who has finished it
+--   select m.name,
+--          (o.member_id is not null) as joined,
+--          (x.member_id is not null) as finished
+--   from members m
+--   left join challenge_optins o
+--     on o.member_id = m.id
+--    and o.challenge_id = (select id from challenges where title = 'No One Left Behind')
+--   left join challenge_completions x
+--     on x.member_id = m.id
+--    and x.challenge_id = (select id from challenges where title = 'No One Left Behind')
+--   where o.member_id is not null;
+
+-- Change a live quest's mode, for example from a pooled total to one
+-- where every member has to hit the target themselves. Progress and
+-- badges recalculate as soon as anyone loads the site.
+--   update challenges set mode = 'each' where id = 1;
 
 -- End a quest. It leaves the board and moves to the completed list at
--- the bottom of the column. Badges already earned stay forever.
---   update challenges set open = false where id = 1;
+-- the bottom of the column. Badges already earned stay forever, and a
+-- closed quest's badges are frozen: they no longer react to changes in
+-- workout history.
+--   update challenges set open = false
+--   where title = 'No One Left Behind';
 
 -- Fix a typo on a live quest
---   update challenges set title = 'New title' where id = 1;
+--   update challenges set title = 'New title'
+--   where title = 'Old title';
 
 -- Add or change badge art later
---   update challenges set badge = 'new-badge.png' where id = 1;
+--   update challenges set badge = 'new-badge.png'
+--   where title = 'No One Left Behind';
+
+-- Extend a deadline
+--   update challenges set ends_on = '2026-09-30'
+--   where title = 'No One Left Behind';
 
 -- Delete a quest completely. This also removes its opt-ins and the
 -- badges people earned from it, so prefer closing over deleting.
---   delete from challenges where id = 1;
+--   delete from challenges where title = 'No One Left Behind';
+
+-- Clear every test quest at once
+--   delete from challenges;
 
 -- To post news:
 --   insert into news (content, ts)
