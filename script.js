@@ -339,7 +339,14 @@ let goalCalcResult        = null;
 let news                  = [];
 let votes                 = [];
 let voteResponses         = [];
-let voteAs                = null;
+let challenges            = [];
+let challengeOptins       = [];
+let challengeCompletions  = [];
+let expandedQuestId       = null;
+let trophyOpen            = false;
+let awardRunning          = false;
+// Shared identity for votes and quests, remembered per device
+let sideIdentity          = localStorage.getItem('wc-identity') || null;
 let logCopyMsg            = '';
 let pendingAttachment     = null;
 let sweepRunning          = false;
@@ -358,7 +365,7 @@ function freshComments() {
 async function loadData() {
   const [{ data: m }, { data: w }, { data: l }, { data: le }, { data: c },
          { data: f }, { data: fs }, { data: fl }, { data: mg }, { data: nw },
-         { data: vt }, { data: vr }] = await Promise.all([
+         { data: vt }, { data: vr }, { data: ch }, { data: co }, { data: cc }] = await Promise.all([
     db.from('members').select('*').order('name'),
     db.from('workouts').select('*'),
     db.from('lifts').select('*'),
@@ -371,6 +378,9 @@ async function loadData() {
     db.from('news').select('*').order('ts', { ascending: false }),
     db.from('votes').select('*').order('ts', { ascending: false }),
     db.from('vote_responses').select('*'),
+    db.from('challenges').select('*').order('ts', { ascending: false }),
+    db.from('challenge_optins').select('*'),
+    db.from('challenge_completions').select('*'),
   ]);
   members      = m  || [];
   workouts     = w  || [];
@@ -382,9 +392,15 @@ async function loadData() {
   foodLog      = fl || [];
   macroGoals   = mg || [];
   news         = nw || [];
-  votes         = vt || [];
-  voteResponses = vr || [];
+  votes                = vt || [];
+  voteResponses        = vr || [];
+  challenges           = ch || [];
+  challengeOptins      = co || [];
+  challengeCompletions = cc || [];
+  // A stored identity may reference a deleted member
+  if (sideIdentity && !members.some(m => m.id === sideIdentity)) sideIdentity = null;
   sweepExpiredComments();
+  awardCompletedQuests();
 
   // Pickers start empty. Only reset a selection if that member no longer exists.
   const exists = id => members.some(x => x.id === id);
@@ -410,6 +426,9 @@ db.channel('db-changes')
   .on('postgres_changes', { event: '*', schema: 'public', table: 'news' },         () => loadData())
   .on('postgres_changes', { event: '*', schema: 'public', table: 'votes' },          () => loadData())
   .on('postgres_changes', { event: '*', schema: 'public', table: 'vote_responses' }, () => loadData())
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'challenges' },            () => loadData())
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'challenge_optins' },      () => loadData())
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'challenge_completions' }, () => loadData())
   .subscribe();
 
 // ─────────────────────────────────────────────
@@ -468,104 +487,328 @@ function renderNewsTicker() {
 
 function renderTracker() {
   const cw = getMonday();
-  renderWeeklyMVP(cw);
+  renderThisWeek(cw);
+  renderIdentityCard();
   renderVoteCard();
-  renderWeeklyRecap();
-  renderNudgeBanner(cw);
+  renderQuestBoard();
+  renderTrophyWall();
   document.getElementById('member-list').innerHTML = members.length === 0
     ? `<p class="empty-msg">No members yet.<br/>Add someone to get started.</p>`
     : members.map(m => memberRowHTML(m, cw)).join('');
   renderAddArea();
 }
 
-function renderWeeklyMVP(cw) {
-  const el = document.getElementById('mvp-banner');
+function renderThisWeek(cw) {
+  const el = document.getElementById('this-week-card');
   if (!el) return;
   if (members.length === 0) { el.innerHTML = ''; return; }
 
-  const counts = members
-    .map(m => ({ ...m, count: workouts.filter(w => w.member_id === m.id && w.week_start === cw).length }))
-    .filter(m => m.count > 0);
-  if (counts.length === 0) { el.innerHTML = ''; return; }
-
-  const max     = Math.max(...counts.map(m => m.count));
-  const leaders = counts.filter(m => m.count === max);
-  const names   = leaders.map(m => `<strong>${esc(m.name)}</strong>`).join(', ');
-
-  el.innerHTML = `
-    <div class="side-card">
-      <div class="side-card-label">Leading this week</div>
-      <div class="side-card-value">${names}</div>
-      <div class="side-card-sub">${max} session${max !== 1 ? 's' : ''}</div>
-    </div>`;
-}
-
-function renderWeeklyRecap() {
-  const el = document.getElementById('recap-section');
-  if (!el) return;
+  const counts  = members.map(m => ({ ...m, count: workouts.filter(w => w.member_id === m.id && w.week_start === cw).length }));
+  const active  = counts.filter(m => m.count > 0);
+  const max     = active.length > 0 ? Math.max(...active.map(m => m.count)) : 0;
+  const leaders = active.filter(m => m.count === max);
+  const behind  = counts.filter(m => m.count < WEEKLY_GOAL);
 
   const lastMonday = new Date(getMonday() + 'T12:00:00');
   lastMonday.setDate(lastMonday.getDate() - 7);
   const lw = lastMonday.toISOString().split('T')[0];
+  const lwStats  = members.map(m => ({ ...m, count: workouts.filter(w => w.member_id === m.id && w.week_start === lw).length }));
+  const lwHit    = lwStats.filter(m => m.count >= WEEKLY_GOAL);
+  const lwMax    = Math.max(...lwStats.map(m => m.count), 0);
+  const lwLeads  = lwMax > 0 ? lwStats.filter(m => m.count === lwMax) : [];
+  const lwHitIds = new Set(lwHit.map(m => m.id));
+  const lwMissed = members.filter(m => !lwHitIds.has(m.id));
+  const hasLast  = workouts.some(w => w.week_start === lw);
 
-  if (members.length === 0 || !workouts.some(w => w.week_start === lw)) { el.innerHTML = ''; return; }
-
-  const memberStats = members.map(m => ({
-    ...m, count: workouts.filter(w => w.member_id === m.id && w.week_start === lw).length
-  }));
-  const hitGoal    = memberStats.filter(m => m.count >= WEEKLY_GOAL);
-  const maxCount   = Math.max(...memberStats.map(m => m.count));
-  const mvps       = maxCount > 0 ? memberStats.filter(m => m.count === maxCount) : [];
-  const hitGoalIds = new Set(hitGoal.map(m => m.id));
-  const missed     = members.filter(m => !hitGoalIds.has(m.id));
-  const mvpText    = mvps.length > 0 ? `${mvps.map(m => esc(m.name)).join(', ')} (${maxCount} sessions)` : 'No sessions';
+  const dayOfWeek = new Date().getDay();
+  const nudgeOn   = (dayOfWeek === 0 || dayOfWeek >= NUDGE_START_DAY) && behind.length > 0;
+  let nudgeText   = 'Behind on the goal';
+  if (dayOfWeek === 0)     nudgeText = 'Last day to hit goal';
+  else if (dayOfWeek >= 5) nudgeText = 'Running out of week';
 
   el.innerHTML = `
     <div class="side-card side-card--flush">
       <button class="recap-toggle" data-action="toggle-recap">
-        <span class="side-card-label">Last week</span>
-        <span class="side-card-value">${hitGoal.length}/${members.length} hit goal <span class="recap-caret">${recapExpanded ? '▴' : '▾'}</span></span>
+        ${leaders.length > 0
+          ? `<div class="tw-line">Leading: <strong>${leaders.map(m => esc(m.name)).join(', ')}</strong> · ${max}</div>`
+          : `<div class="tw-line">No sessions logged yet</div>`}
+        ${hasLast ? `<div class="tw-line tw-sub">Last week ${lwHit.length}/${members.length} hit goal</div>` : ''}
+        ${nudgeOn ? `<div class="tw-line tw-warn">${nudgeText}: ${behind.length}</div>` : ''}
+        <span class="recap-caret">${recapExpanded ? '▴' : '▾'}</span>
       </button>
       ${recapExpanded ? `
         <div class="recap-body">
-          <div class="recap-row">
-            <span class="recap-row-label">Leader</span>
-            <span class="recap-row-value">${mvpText}</span>
-          </div>
-          <div class="recap-row">
-            <span class="recap-row-label">Hit goal</span>
-            <span class="recap-row-value">${hitGoal.length > 0 ? hitGoal.map(m => esc(m.name)).join(', ') : 'Nobody'}</span>
-          </div>
-          ${missed.length > 0 ? `<div class="recap-row">
-            <span class="recap-row-label">Missed</span>
-            <span class="recap-row-value">${missed.map(m => esc(m.name)).join(', ')}</span>
+          ${hasLast ? `
+            <div class="recap-row">
+              <span class="recap-row-label">LW leader</span>
+              <span class="recap-row-value">${lwLeads.length > 0 ? `${lwLeads.map(m => esc(m.name)).join(', ')} (${lwMax})` : 'No sessions'}</span>
+            </div>
+            <div class="recap-row">
+              <span class="recap-row-label">LW hit goal</span>
+              <span class="recap-row-value">${lwHit.length > 0 ? lwHit.map(m => esc(m.name)).join(', ') : 'Nobody'}</span>
+            </div>
+            ${lwMissed.length > 0 ? `<div class="recap-row">
+              <span class="recap-row-label">LW missed</span>
+              <span class="recap-row-value">${lwMissed.map(m => esc(m.name)).join(', ')}</span>
+            </div>` : ''}` : ''}
+          ${behind.length > 0 ? `<div class="recap-row">
+            <span class="recap-row-label">Behind now</span>
+            <span class="recap-row-value">${behind.map(m => esc(m.name)).join(', ')}</span>
           </div>` : ''}
         </div>` : ''}
     </div>`;
 }
 
-function renderNudgeBanner(cw) {
-  const banner = document.getElementById('nudge-banner');
-  if (!banner) return;
-  const dayOfWeek = new Date().getDay();
-  const showDay   = dayOfWeek === 0 || dayOfWeek >= NUDGE_START_DAY;
-  if (!showDay || members.length === 0) { banner.innerHTML = ''; return; }
+// ─────────────────────────────────────────────
+// Quest board
+//
+// Challenges are posted by the admin through the SQL Editor (the
+// challenges table is select-only, like news and votes). Members opt
+// in from the app, and completion is detected automatically from
+// workout and lift data: whichever browser notices a target being
+// crossed writes the completion row, and the primary key keeps racing
+// browsers from double-awarding.
+// ─────────────────────────────────────────────
 
-  const behind = members.filter(m =>
-    workouts.filter(w => w.member_id === m.id && w.week_start === cw).length < 3
-  );
-  if (behind.length === 0) { banner.innerHTML = ''; return; }
+const QUEST_METRIC_LABELS = {
+  sessions: 'sessions',
+  variety:  'workout types',
+  lift:     'lb',
+};
 
-  let prefix;
-  if (dayOfWeek === 0)     prefix = 'Last day to hit goal';
-  else if (dayOfWeek >= 5) prefix = 'Running out of week';
-  else                     prefix = 'Behind on the goal';
+function questWindow(ch) {
+  const start = new Date(ch.starts_on + 'T00:00:00').getTime();
+  const end   = new Date(ch.ends_on   + 'T23:59:59').getTime();
+  return { start, end };
+}
 
-  banner.innerHTML = `
-    <div class="side-card side-card--warn">
-      <div class="side-card-label nudge-label">${prefix}</div>
-      <div class="side-card-value side-card-value--names">${behind.map(m => esc(m.name)).join(', ')}</div>
+function questParticipants(ch) {
+  const ids = new Set(challengeOptins.filter(o => o.challenge_id === ch.id).map(o => o.member_id));
+  return members.filter(m => ids.has(m.id));
+}
+
+function questCompletedIds(ch) {
+  return new Set(challengeCompletions.filter(c => c.challenge_id === ch.id).map(c => c.member_id));
+}
+
+// How far one member has come on a quest's metric, within its window
+function memberQuestValue(ch, memberId) {
+  const { start, end } = questWindow(ch);
+  if (ch.metric === 'lift') {
+    return liftEntries
+      .filter(e => e.member_id === memberId && e.lift_name === ch.metric_detail && e.ts >= start && e.ts <= end)
+      .reduce((best, e) => Math.max(best, epley1RM(e.weight, e.reps)), 0);
+  }
+  const sessions = workouts.filter(w => w.member_id === memberId && w.ts >= start && w.ts <= end);
+  if (ch.metric === 'variety') {
+    return new Set(sessions.map(w => w.workout_type).filter(Boolean)).size;
+  }
+  const typed = ch.metric_detail ? sessions.filter(w => w.workout_type === ch.metric_detail) : sessions;
+  return typed.length;
+}
+
+// Collective quests pool every participant's value into one bar
+function questProgress(ch, memberId) {
+  const target = ch.target;
+  if (ch.mode === 'collective') {
+    const current = questParticipants(ch).reduce((sum, m) => sum + memberQuestValue(ch, m.id), 0);
+    return { current, target, done: current >= target };
+  }
+  const current = memberId ? memberQuestValue(ch, memberId) : 0;
+  return { current, target, done: current >= target };
+}
+
+// Writes completion rows for anyone who has met the target. Runs after
+// every data load; the composite primary key makes repeats harmless.
+async function awardCompletedQuests() {
+  if (awardRunning) return;
+  const pending = [];
+  challenges.filter(ch => ch.open).forEach(ch => {
+    const earned = questCompletedIds(ch);
+    const collectiveDone = ch.mode === 'collective' && questProgress(ch).done;
+    questParticipants(ch).forEach(m => {
+      if (earned.has(m.id)) return;
+      const done = ch.mode === 'collective' ? collectiveDone : questProgress(ch, m.id).done;
+      if (done) pending.push({ challenge_id: ch.id, member_id: m.id, ts: Date.now() });
+    });
+  });
+  if (pending.length === 0) return;
+  awardRunning = true;
+  try {
+    const { error } = await db.from('challenge_completions').insert(pending);
+    if (!error) {
+      pending.forEach(p => challengeCompletions.push(p));
+      renderQuestBoard();
+      renderTrophyWall();
+      const mine = pending.find(p => p.member_id === sideIdentity);
+      if (mine) {
+        const ch = challenges.find(c => c.id === mine.challenge_id);
+        showToast(`QUEST COMPLETE: ${ch ? ch.title : ''}`, true);
+      }
+    }
+  } finally {
+    awardRunning = false;
+  }
+}
+
+function badgeHTML(ch, size) {
+  const cls = size === 'lg' ? 'quest-badge quest-badge--lg' : 'quest-badge';
+  if (ch.badge) {
+    return `<img class="${cls}" src="icons/badges/${esc(ch.badge)}" alt="" loading="lazy"/>`;
+  }
+  return `<span class="${cls} quest-badge--default" aria-hidden="true">\u2726</span>`;
+}
+
+// One "You are" picker drives both the vote card and the quest board
+function renderIdentityCard() {
+  const el = document.getElementById('identity-card');
+  if (!el) return;
+  if (members.length === 0) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div class="side-card side-card--identity">
+      <label class="side-card-label" for="identityPicker">You are</label>
+      <select id="identityPicker" class="strength-picker identity-picker">
+        <option value="">Pick your name</option>
+        ${members.map(m => `<option value="${m.id}" ${sideIdentity === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
+      </select>
     </div>`;
+}
+
+function renderQuestBoard() {
+  const el = document.getElementById('quest-board');
+  if (!el) return;
+  const open = challenges.filter(ch => ch.open);
+  if (open.length === 0) { el.innerHTML = ''; return; }
+
+  el.innerHTML = `
+    <h2 class="section-header">Quest Board</h2>
+    ${open.map(ch => questCardHTML(ch)).join('')}`;
+}
+
+function questCardHTML(ch) {
+  const participants = questParticipants(ch);
+  const earned       = questCompletedIds(ch);
+  const joined       = sideIdentity ? participants.some(m => m.id === sideIdentity) : false;
+  const iEarned      = sideIdentity ? earned.has(sideIdentity) : false;
+  const full         = ch.max_participants != null && participants.length >= ch.max_participants && !joined;
+  const expanded     = expandedQuestId === ch.id;
+
+  const prog   = questProgress(ch, sideIdentity);
+  const unit   = ch.metric === 'lift' ? QUEST_METRIC_LABELS.lift : QUEST_METRIC_LABELS[ch.metric];
+  const pct    = Math.min(100, (prog.current / prog.target) * 100);
+  const showBar = ch.mode === 'collective' || joined;
+  const spots  = ch.max_participants != null
+    ? `${participants.length}/${ch.max_participants} joined`
+    : `${participants.length} joined`;
+
+  const daysLeft = Math.ceil((questWindow(ch).end - Date.now()) / 86400000);
+  const timeText = daysLeft > 1 ? `${daysLeft} days left` : (daysLeft === 1 ? 'Last day' : 'Ended');
+
+  return `
+    <div class="quest-card${iEarned ? ' quest-card--done' : ''}">
+      <button class="quest-head" data-action="toggle-quest" data-quest-id="${ch.id}" aria-expanded="${expanded}">
+        ${badgeHTML(ch)}
+        <span class="quest-head-text">
+          <span class="quest-title">${esc(ch.title)}</span>
+          <span class="quest-meta">
+            <span class="quest-chip">${ch.mode === 'collective' ? 'Group' : 'Solo'}</span>
+            ${spots} \u00b7 ${timeText}
+          </span>
+        </span>
+        <span class="recap-caret">${expanded ? '\u25b4' : '\u25be'}</span>
+      </button>
+
+      ${showBar ? `
+        <div class="quest-progress">
+          <div class="quest-progress-row">
+            <span>${ch.mode === 'collective' ? 'Club progress' : 'Your progress'}</span>
+            <span>${Math.round(prog.current)}/${prog.target} ${unit}</span>
+          </div>
+          <span class="vote-bar"><span class="lb-bar-fill vote-fill" style="width:${pct}%"></span></span>
+        </div>` : ''}
+
+      ${iEarned ? `<div class="quest-earned">Completed${ch.reward ? `. See Corey for: ${esc(ch.reward)}` : ''}</div>` : ''}
+
+      ${expanded ? `
+        <div class="quest-body">
+          ${ch.description ? `<p class="quest-desc">${esc(ch.description)}</p>` : ''}
+          ${ch.reward ? `<div class="quest-reward"><span class="side-card-label">Reward</span>${esc(ch.reward)}</div>` : ''}
+          <div class="quest-roster">
+            <span class="side-card-label">Party</span>
+            ${participants.length === 0
+              ? 'Nobody has joined yet'
+              : participants.map(m => `<span class="quest-member${earned.has(m.id) ? ' quest-member--done' : ''}">${esc(m.name)}${earned.has(m.id) ? ' \u2713' : ''}</span>`).join('')}
+          </div>
+          ${joined
+            ? `<button class="quest-btn quest-btn--leave" data-action="leave-quest" data-quest-id="${ch.id}">Leave quest</button>`
+            : `<button class="quest-btn" data-action="join-quest" data-quest-id="${ch.id}" ${full ? 'disabled' : ''}>${full ? 'Party full' : 'Join quest'}</button>`}
+          <div class="form-error" id="questError-${ch.id}"></div>
+        </div>` : ''}
+    </div>`;
+}
+
+function renderTrophyWall() {
+  const el = document.getElementById('trophy-wall');
+  if (!el) return;
+  const done = challenges.filter(ch => !ch.open && questCompletedIds(ch).size > 0);
+  if (done.length === 0) { el.innerHTML = ''; return; }
+
+  el.innerHTML = `
+    <div class="side-card side-card--flush">
+      <button class="recap-toggle" data-action="toggle-trophies" aria-expanded="${trophyOpen}">
+        <span class="side-card-label">Completed quests</span>
+        <span class="side-card-value">${done.length} in the book <span class="recap-caret">${trophyOpen ? '\u25b4' : '\u25be'}</span></span>
+      </button>
+      ${trophyOpen ? `
+        <div class="recap-body">
+          ${done.map(ch => {
+            const winners = members.filter(m => questCompletedIds(ch).has(m.id));
+            return `
+              <div class="trophy-row">
+                ${badgeHTML(ch, 'lg')}
+                <div>
+                  <div class="trophy-title">${esc(ch.title)}</div>
+                  <div class="trophy-names">${winners.map(m => esc(m.name)).join(', ')}</div>
+                </div>
+              </div>`;
+          }).join('')}
+        </div>` : ''}
+    </div>`;
+}
+
+async function joinQuest(questId) {
+  const ch = challenges.find(c => c.id === Number(questId));
+  if (!ch) return;
+  if (!sideIdentity) {
+    showFormError(`questError-${ch.id}`, 'Pick your name at the top of the column first.');
+    return;
+  }
+  const participants = questParticipants(ch);
+  if (ch.max_participants != null && participants.length >= ch.max_participants) {
+    showFormError(`questError-${ch.id}`, 'This party is full.');
+    return;
+  }
+  challengeOptins.push({ challenge_id: ch.id, member_id: sideIdentity, ts: Date.now() });
+  renderQuestBoard();
+  const { error } = await db.from('challenge_optins')
+    .insert({ challenge_id: ch.id, member_id: sideIdentity, ts: Date.now() });
+  if (error) {
+    alert('Joining the quest failed: ' + error.message);
+    return;
+  }
+  awardCompletedQuests();
+}
+
+async function leaveQuest(questId) {
+  const id = Number(questId);
+  if (!sideIdentity) return;
+  challengeOptins = challengeOptins.filter(o => !(o.challenge_id === id && o.member_id === sideIdentity));
+  renderQuestBoard();
+  const { error } = await db.from('challenge_optins')
+    .delete()
+    .eq('challenge_id', id)
+    .eq('member_id', sideIdentity);
+  if (error) alert('Leaving the quest failed: ' + error.message);
 }
 
 // Admin-called votes: the votes table is select-only (posted through
@@ -577,7 +820,7 @@ function renderVoteCard() {
   if (!vote) { el.innerHTML = ''; return; }
 
   const responses = voteResponses.filter(r => r.vote_id === vote.id);
-  const myChoice = voteAs ? responses.find(r => r.member_id === voteAs)?.choice : null;
+  const myChoice = sideIdentity ? responses.find(r => r.member_id === sideIdentity)?.choice : null;
   const counts = vote.options.map((_, i) => responses.filter(r => r.choice === i).length);
   const maxCount = Math.max(...counts, 1);
 
@@ -585,10 +828,6 @@ function renderVoteCard() {
     <div class="side-card">
       <div class="side-card-label">Club vote</div>
       <div class="side-card-value vote-question">${esc(vote.question)}</div>
-      <select id="votePicker" class="strength-picker vote-picker" aria-label="Voting as">
-        <option value="">Voting as…</option>
-        ${members.map(m => `<option value="${m.id}" ${voteAs === m.id ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}
-      </select>
       ${vote.options.map((opt, i) => `
         <button class="vote-opt${myChoice === i ? ' vote-opt--mine' : ''}" data-action="cast-vote" data-choice="${i}">
           <span class="vote-opt-row">
@@ -605,14 +844,14 @@ function renderVoteCard() {
 async function castVote(choice) {
   const vote = votes.find(v => v.open);
   if (!vote) return;
-  if (!voteAs) {
-    showFormError('voteError', 'Pick who you are voting as first.');
+  if (!sideIdentity) {
+    showFormError('voteError', 'Pick your name at the top of the column first.');
     return;
   }
   showFormError('voteError', '');
   await db.from('vote_responses').upsert({
     vote_id: vote.id,
-    member_id: voteAs,
+    member_id: sideIdentity,
     choice: Number(choice),
     ts: Date.now(),
   });
@@ -2350,7 +2589,7 @@ document.addEventListener('click', e => {
   if (action === 'submit-add')          doAddMember();
   if (action === 'pick-workout-type')   setWorkoutType(memberId, Number(slot), type);
   if (action === 'skip-workout-type')   { pendingTypeInfo = null; renderTracker(); }
-  if (action === 'toggle-recap')        { recapExpanded = !recapExpanded; renderWeeklyRecap(); }
+  if (action === 'toggle-recap')        { recapExpanded = !recapExpanded; renderThisWeek(getMonday()); }
 
   if (action === 'start-log-lift')      { loggingLiftId = lift; renderStrengthList(); }
   if (action === 'cancel-lift')         { loggingLiftId = null; renderStrengthList(); }
@@ -2363,6 +2602,14 @@ document.addEventListener('click', e => {
   if (action === 'remove-custom-lift')  removeCustomLift(lift);
 
   if (action === 'cast-vote')           castVote(btn.dataset.choice);
+  if (action === 'toggle-quest') {
+    const id = Number(btn.dataset.questId);
+    expandedQuestId = expandedQuestId === id ? null : id;
+    renderQuestBoard();
+  }
+  if (action === 'join-quest')          joinQuest(btn.dataset.questId);
+  if (action === 'leave-quest')         leaveQuest(btn.dataset.questId);
+  if (action === 'toggle-trophies')     { trophyOpen = !trophyOpen; renderTrophyWall(); }
   if (action === 'post-comment')        postComment();
   if (action === 'attach-pick')         document.getElementById('attachInput')?.click();
   if (action === 'attach-clear')        clearAttachment();
@@ -2456,7 +2703,13 @@ document.getElementById('panel-strength').addEventListener('change', e => {
   if (e.target.id === 'recordsOptIn' && currentStrengthMember) {
     const m = members.find(x => x.id === currentStrengthMember);
     m.records_opt_in = e.target.checked;
-    db.from('members').update({ records_opt_in: e.target.checked }).eq('id', currentStrengthMember);
+    // Query builders only execute when awaited or chained; without
+    // this .then the write never left the browser
+    db.from('members').update({ records_opt_in: e.target.checked })
+      .eq('id', currentStrengthMember)
+      .then(({ error }) => {
+        if (error) alert('Saving records opt-in failed: ' + error.message);
+      });
     renderClubRecords();
   }
 });
@@ -2467,9 +2720,12 @@ document.getElementById('panel-leaderboard').addEventListener('change', e => {
 });
 
 document.getElementById('panel-tracker').addEventListener('change', e => {
-  if (e.target.id === 'votePicker') {
-    voteAs = e.target.value || null;
+  if (e.target.id === 'identityPicker') {
+    sideIdentity = e.target.value || null;
+    if (sideIdentity) localStorage.setItem('wc-identity', sideIdentity);
+    else localStorage.removeItem('wc-identity');
     renderVoteCard();
+    renderQuestBoard();
   }
 });
 
@@ -2516,7 +2772,11 @@ document.getElementById('panel-nutrition').addEventListener('change', e => {
     if (!v) return;
     const m = members.find(x => x.id === nutMember);
     m.day_start = v;
-    db.from('members').update({ day_start: v }).eq('id', nutMember);
+    db.from('members').update({ day_start: v })
+      .eq('id', nutMember)
+      .then(({ error }) => {
+        if (error) alert('Saving day start failed: ' + error.message);
+      });
     renderNutritionBody();
   }
 });

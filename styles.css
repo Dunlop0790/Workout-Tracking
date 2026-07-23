@@ -2638,6 +2638,151 @@ html.bloom-on[data-theme="sakura"] body {
 }
 
 /* =========================
+   Quest board
+   ========================= */
+.tw-line { font-size: 13px; line-height: 1.6; }
+.tw-sub  { color: var(--text-2); font-size: 12px; }
+.tw-warn { color: #c2570c; font-size: 12px; }
+.side-card--flush .recap-toggle { position: relative; }
+.side-card--flush .recap-caret { position: absolute; top: 12px; right: 14px; }
+
+.side-card--identity { padding-bottom: 12px; }
+.identity-picker { width: 100%; }
+
+.quest-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.quest-card--done { border-color: var(--green-border); }
+
+.quest-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 13px;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.quest-head:hover { background: var(--surface-2); }
+.quest-head-text { flex: 1; min-width: 0; }
+.quest-title {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.quest-meta {
+  display: block;
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 3px;
+}
+.quest-chip {
+  display: inline-block;
+  padding: 1px 7px;
+  margin-right: 5px;
+  border: 1px solid var(--border-2);
+  border-radius: 10px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.quest-badge {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+.quest-badge--lg { width: 40px; height: 40px; }
+.quest-badge--default {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-2);
+  border-radius: 50%;
+  color: var(--text-3);
+  font-size: 15px;
+}
+
+.quest-progress { padding: 0 13px 11px; }
+.quest-progress-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-2);
+  margin-bottom: 5px;
+}
+.quest-earned {
+  padding: 8px 13px;
+  background: var(--green-bg);
+  border-top: 1px solid var(--green-border);
+  font-size: 12px;
+  color: var(--green);
+}
+.quest-body {
+  padding: 11px 13px 13px;
+  border-top: 1px solid var(--border);
+}
+.quest-desc {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-2);
+  margin-bottom: 10px;
+}
+.quest-reward, .quest-roster { margin-bottom: 10px; font-size: 13px; }
+.quest-member {
+  display: inline-block;
+  margin: 3px 5px 0 0;
+  padding: 2px 8px;
+  border: 1px solid var(--border-2);
+  border-radius: 12px;
+  font-size: 12px;
+}
+.quest-member--done {
+  border-color: var(--green-border);
+  background: var(--green-bg);
+  color: var(--green);
+}
+.quest-btn {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  background: var(--text);
+  color: var(--bg);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.quest-btn:hover { opacity: 0.9; }
+.quest-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.quest-btn--leave {
+  background: transparent;
+  color: var(--text-2);
+}
+
+.trophy-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.trophy-row:last-child { border-bottom: none; }
+.trophy-title { font-size: 13px; font-weight: 500; }
+.trophy-names { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+
+/* =========================
    Wii cursor: original hand pointer drawn as inline SVG (not the
    uploaded third-party pack). Hotspot at the fingertip (11, 3).
    ========================= */

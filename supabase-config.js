@@ -232,6 +232,174 @@ alter publication supabase_realtime add table vote_responses;
 -- To close one (results disappear from the site once closed):
 --   update votes set open = false where id = 1;
 
+-- ─────────────────────────────────────────────
+-- QUEST BOARD
+--
+-- WHEN TO RUN: once, when setting up the quest board. Paste the whole
+-- block below into the Supabase SQL Editor and press Run. Running it
+-- again is safe; the tables are only created if missing.
+--
+-- HOW IT WORKS: only you can post quests, because the challenges table
+-- is read-only to the app (same pattern as news and votes). Members
+-- join from the site, and the site writes completion rows by itself
+-- when someone hits the target. You never mark anyone complete.
+-- ─────────────────────────────────────────────
+
+create table if not exists challenges (
+  id               bigserial primary key,
+  title            text not null,        -- shown on the quest card
+  description      text,                 -- shown when the card is expanded
+  reward           text,                 -- physical prize, or leave null for none
+  badge            text,                 -- file in icons/badges/, or null for a default mark
+  mode             text not null default 'individual',
+  metric           text not null default 'sessions',
+  metric_detail    text,
+  target           numeric not null,     -- the number that has to be reached
+  max_participants int,                  -- party cap, or null for unlimited
+  starts_on        date not null,        -- only work inside this window counts
+  ends_on          date not null,
+  open             boolean not null default true,
+  ts               bigint not null
+);
+alter table challenges enable row level security;
+create policy "Read only" on challenges for select using (true);
+
+-- Who joined which quest. One row per member per quest; the primary
+-- key stops anyone joining the same quest twice.
+create table if not exists challenge_optins (
+  challenge_id bigint not null references challenges(id) on delete cascade,
+  member_id    text not null references members(id) on delete cascade,
+  ts           bigint not null,
+  primary key (challenge_id, member_id)
+);
+alter table challenge_optins enable row level security;
+create policy "Allow all" on challenge_optins for all using (true) with check (true);
+
+-- Earned badges. The site inserts here automatically; the primary key
+-- means two browsers noticing the same completion cannot double-award.
+create table if not exists challenge_completions (
+  challenge_id bigint not null references challenges(id) on delete cascade,
+  member_id    text not null references members(id) on delete cascade,
+  ts           bigint not null,
+  primary key (challenge_id, member_id)
+);
+alter table challenge_completions enable row level security;
+create policy "Allow all" on challenge_completions for all using (true) with check (true);
+
+-- Live updates, so quests and badges appear without a refresh
+alter publication supabase_realtime add table challenges;
+alter publication supabase_realtime add table challenge_optins;
+alter publication supabase_realtime add table challenge_completions;
+
+
+-- ─────────────────────────────────────────────
+-- POSTING A QUEST
+--
+-- WHEN TO RUN: every time you want to open a new quest. Copy one of
+-- the templates below, change the values, and press Run. The quest
+-- appears on everyone's Tracker tab immediately.
+--
+-- THE THREE FIELDS THAT DECIDE WHAT THE QUEST MEASURES:
+--
+--   metric = 'sessions'   count workouts logged
+--     metric_detail       null      = any workout counts
+--                         'cardio'  = only cardio counts
+--                         (also: 'lift', 'run', 'sport', 'cross', 'other')
+--     target              how many sessions
+--
+--   metric = 'variety'    count different workout types logged
+--     metric_detail       not used, pass null
+--     target              how many different types (max 6)
+--
+--   metric = 'lift'       reach an estimated 1RM
+--     metric_detail       the lift name exactly as it appears in the
+--                         app, for example 'Squat', 'Bench Press',
+--                         'Deadlift', 'Overhead Press'
+--     target              the weight in pounds
+--
+--   mode = 'individual'   everyone is tracked separately; each person
+--                         who reaches the target earns the badge
+--   mode = 'collective'   everyone who joined is pooled into one bar;
+--                         when the club total reaches the target, the
+--                         whole party earns the badge together
+--
+-- Leave reward out entirely when there is no physical prize.
+-- Leave max_participants out entirely for an unlimited party.
+-- Always leave ts as written; it stamps the current time for you.
+-- ─────────────────────────────────────────────
+
+-- TEMPLATE 1: solo quest, capped at 10 people, with a physical reward
+--   insert into challenges (title, description, reward, badge, mode,
+--                           metric, metric_detail, target,
+--                           max_participants, starts_on, ends_on, ts)
+--   values ('Cardio Crusader',                                -- title
+--           'Log 8 cardio sessions before the month is out.', -- description
+--           'Protein shake on me',                            -- reward
+--           'cardio-crusader.png',                            -- badge art
+--           'individual',                                     -- mode
+--           'sessions', 'cardio', 8,                          -- metric, detail, target
+--           10,                                               -- party cap
+--           '2026-08-01', '2026-08-31',                       -- window
+--           (extract(epoch from now()) * 1000)::bigint);      -- leave as is
+
+-- TEMPLATE 2: group quest, unlimited party, no physical reward
+--   insert into challenges (title, description, mode, metric, target,
+--                           starts_on, ends_on, ts)
+--   values ('Century Run',
+--           'The party logs 100 sessions together.',
+--           'collective', 'sessions', 100,
+--           '2026-08-01', '2026-08-31',
+--           (extract(epoch from now()) * 1000)::bigint);
+
+-- TEMPLATE 3: variety quest, log five different workout types
+--   insert into challenges (title, description, badge, mode, metric,
+--                           metric_detail, target, starts_on, ends_on, ts)
+--   values ('Jack of All Trades',
+--           'Log five different workout types this month.',
+--           'jack-of-all-trades.png', 'individual', 'variety',
+--           null, 5, '2026-08-01', '2026-08-31',
+--           (extract(epoch from now()) * 1000)::bigint);
+
+-- TEMPLATE 4: lift quest, reach a 315 lb estimated squat 1RM
+--   insert into challenges (title, description, reward, mode, metric,
+--                           metric_detail, target, starts_on, ends_on, ts)
+--   values ('315 Club',
+--           'Hit a 315 lb estimated squat 1RM.',
+--           'Bragging rights and a sticker', 'individual', 'lift',
+--           'Squat', 315, '2026-08-01', '2026-09-30',
+--           (extract(epoch from now()) * 1000)::bigint);
+
+
+-- ─────────────────────────────────────────────
+-- MANAGING QUESTS
+-- ─────────────────────────────────────────────
+
+-- See every quest and its id, newest first. Run this when you need an
+-- id for the commands below.
+--   select id, title, mode, open, starts_on, ends_on from challenges
+--   order by ts desc;
+
+-- See who has earned a quest badge
+--   select c.title, m.name
+--   from challenge_completions cc
+--   join challenges c on c.id = cc.challenge_id
+--   join members m on m.id = cc.member_id
+--   where cc.challenge_id = 1;
+
+-- End a quest. It leaves the board and moves to the completed list at
+-- the bottom of the column. Badges already earned stay forever.
+--   update challenges set open = false where id = 1;
+
+-- Fix a typo on a live quest
+--   update challenges set title = 'New title' where id = 1;
+
+-- Add or change badge art later
+--   update challenges set badge = 'new-badge.png' where id = 1;
+
+-- Delete a quest completely. This also removes its opt-ins and the
+-- badges people earned from it, so prefer closing over deleting.
+--   delete from challenges where id = 1;
+
 -- To post news:
 --   insert into news (content, ts)
 --   values ('New: Nutrition tab is live', (extract(epoch from now()) * 1000)::bigint);
