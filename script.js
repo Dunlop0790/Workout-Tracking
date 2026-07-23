@@ -651,10 +651,13 @@ async function awardCompletedQuests() {
   }
 }
 
+// Badge art is a silhouette masked to the theme's ink color, so one
+// file stays legible on every theme instead of vanishing on the dark
+// ones. Flat art only; full-colour art would be flattened by the mask.
 function badgeHTML(ch, size) {
   const cls = size === 'lg' ? 'quest-badge quest-badge--lg' : 'quest-badge';
   if (ch.badge) {
-    return `<img class="${cls}" src="icons/badges/${esc(ch.badge)}" alt="" loading="lazy"/>`;
+    return `<span class="${cls}" style="--badge:url('icons/badges/${esc(ch.badge)}')" aria-hidden="true"></span>`;
   }
   return `<span class="${cls} quest-badge--default" aria-hidden="true">\u2726</span>`;
 }

@@ -2701,10 +2701,16 @@ html.bloom-on[data-theme="sakura"] body {
   flex-shrink: 0;
   width: 32px;
   height: 32px;
-  object-fit: contain;
+  background-color: currentColor;
+  -webkit-mask: var(--badge) center / contain no-repeat;
+  mask: var(--badge) center / contain no-repeat;
 }
 .quest-badge--lg { width: 40px; height: 40px; }
+.quest-card--done .quest-badge { color: var(--green); }
 .quest-badge--default {
+  background-color: transparent;
+  -webkit-mask: none;
+  mask: none;
   display: flex;
   align-items: center;
   justify-content: center;
