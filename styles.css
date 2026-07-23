@@ -2777,6 +2777,31 @@ html.bloom-on[data-theme="sakura"] body {
   color: var(--text-2);
 }
 
+/* Earned quest badges beside a member's name */
+.member-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 7px;
+  vertical-align: -2px;
+}
+.member-badge {
+  width: 16px;
+  height: 16px;
+  background-color: currentColor;
+  opacity: 0.75;
+  -webkit-mask: var(--badge) center / contain no-repeat;
+  mask: var(--badge) center / contain no-repeat;
+  cursor: help;
+}
+.member-badge--default {
+  background-color: transparent;
+  -webkit-mask: none;
+  mask: none;
+  font-size: 12px;
+  line-height: 1;
+}
+
 .trophy-row {
   display: flex;
   align-items: center;

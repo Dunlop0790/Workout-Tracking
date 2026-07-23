@@ -860,6 +860,21 @@ async function castVote(choice) {
   });
 }
 
+// Every badge a member has earned, newest first. Quests stay in the
+// list after they close, because badges are permanent.
+function memberBadgesHTML(memberId) {
+  const earned = challengeCompletions
+    .filter(c => c.member_id === memberId)
+    .sort((a, b) => b.ts - a.ts)
+    .map(c => ({ completion: c, quest: challenges.find(ch => ch.id === c.challenge_id) }))
+    .filter(x => x.quest);
+  if (earned.length === 0) return '';
+  return `<span class="member-badges">${earned.map(({ quest }) => quest.badge
+    ? `<span class="member-badge" style="--badge:url('icons/badges/${esc(quest.badge)}')" title="${esc(quest.title)}"></span>`
+    : `<span class="member-badge member-badge--default" title="${esc(quest.title)}">\u2726</span>`
+  ).join('')}</span>`;
+}
+
 function memberRowHTML(m, cw) {
   const myWorkouts = workouts.filter(w => w.member_id === m.id && w.week_start === cw);
   const count      = myWorkouts.length;
@@ -916,7 +931,7 @@ function memberRowHTML(m, cw) {
   return `
     <div class="member-row ${done ? 'done' : ''}" data-member-id="${m.id}">
       <div class="member-info">
-        <div class="member-name">${done ? '&#10003; ' : ''}${esc(m.name)}</div>
+        <div class="member-name">${done ? '&#10003; ' : ''}${esc(m.name)}${memberBadgesHTML(m.id)}</div>
         <div class="member-meta"><span class="member-sub">${count}/${WEEKLY_GOAL} this week${done ? ' · goal met' : ''}${extraLabel}</span>${streakHtml}${coolHtml}</div>
       </div>
       <div class="checks">${checksHtml}</div>
