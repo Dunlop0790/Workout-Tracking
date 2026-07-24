@@ -57,6 +57,22 @@ function workoutLabel(t) {
 
 // Club rules and limits
 const WEEKLY_GOAL = 3;
+
+// Weekly targets resolve in three layers, most specific first:
+//   1. an override for this member in this exact week
+//   2. the member's own standing goal
+//   3. the club default
+// Because the lookup takes a week, changing one week leaves every other
+// week, and therefore the streak history, exactly as it was.
+function goalFor(member, weekStart) {
+  const id = typeof member === 'string' ? member : member?.id;
+  if (weekStart) {
+    const override = weekGoals.find(g => g.member_id === id && g.week_start === weekStart);
+    if (override) return override.goal;
+  }
+  const m = typeof member === 'string' ? members.find(x => x.id === id) : member;
+  return m && m.weekly_goal != null ? m.weekly_goal : WEEKLY_GOAL;
+}
 // The behind-on-goal card stays quiet until midweek; nagging on a
 // Monday helps nobody
 const NUDGE_START_DAY = 3;
@@ -155,7 +171,7 @@ function calcStreak(memberId, workoutData) {
   while (true) {
     const key   = getMonday(cursor);
     const count = weekCounts[key] || 0;
-    if (count >= WEEKLY_GOAL) { streak++; }
+    if (count >= goalFor(memberId, key)) { streak++; }
     else if (key === cw) { /* in-progress week */ }
     else                 { break; }
     cursor.setDate(cursor.getDate() - 7);
@@ -339,6 +355,7 @@ let goalCalcResult        = null;
 let news                  = [];
 let votes                 = [];
 let voteResponses         = [];
+let weekGoals             = [];
 let challenges            = [];
 let challengeOptins       = [];
 let challengeCompletions  = [];
@@ -365,7 +382,7 @@ function freshComments() {
 async function loadData() {
   const [{ data: m }, { data: w }, { data: l }, { data: le }, { data: c },
          { data: f }, { data: fs }, { data: fl }, { data: mg }, { data: nw },
-         { data: vt }, { data: vr }, { data: ch }, { data: co }, { data: cc }] = await Promise.all([
+         { data: vt }, { data: vr }, { data: ch }, { data: co }, { data: cc }, { data: wg }] = await Promise.all([
     db.from('members').select('*').order('name'),
     db.from('workouts').select('*'),
     db.from('lifts').select('*'),
@@ -381,6 +398,7 @@ async function loadData() {
     db.from('challenges').select('*').order('ts', { ascending: false }),
     db.from('challenge_optins').select('*'),
     db.from('challenge_completions').select('*'),
+    db.from('week_goals').select('*'),
   ]);
   members      = m  || [];
   workouts     = w  || [];
@@ -397,6 +415,7 @@ async function loadData() {
   challenges           = ch || [];
   challengeOptins      = co || [];
   challengeCompletions = cc || [];
+  weekGoals            = wg || [];
   // A stored identity may reference a deleted member
   if (sideIdentity && !members.some(m => m.id === sideIdentity)) sideIdentity = null;
   sweepExpiredComments();
@@ -429,6 +448,7 @@ db.channel('db-changes')
   .on('postgres_changes', { event: '*', schema: 'public', table: 'challenges' },            () => loadData())
   .on('postgres_changes', { event: '*', schema: 'public', table: 'challenge_optins' },      () => loadData())
   .on('postgres_changes', { event: '*', schema: 'public', table: 'challenge_completions' }, () => loadData())
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'week_goals' },              () => loadData())
   .subscribe();
 
 // ─────────────────────────────────────────────
@@ -456,7 +476,7 @@ function renderHeader() {
   const cw      = getMonday();
   const total   = members.length;
   const hitGoal = members.filter(m =>
-    workouts.filter(w => w.member_id === m.id && w.week_start === cw).length >= WEEKLY_GOAL
+    workouts.filter(w => w.member_id === m.id && w.week_start === cw).length >= goalFor(m, cw)
   ).length;
   const stat = document.getElementById('teamStat');
   if (total === 0) { stat.innerHTML = ''; return; }
@@ -507,13 +527,13 @@ function renderThisWeek(cw) {
   const active  = counts.filter(m => m.count > 0);
   const max     = active.length > 0 ? Math.max(...active.map(m => m.count)) : 0;
   const leaders = active.filter(m => m.count === max);
-  const behind  = counts.filter(m => m.count < WEEKLY_GOAL);
+  const behind  = counts.filter(m => m.count < goalFor(m, cw));
 
   const lastMonday = new Date(getMonday() + 'T12:00:00');
   lastMonday.setDate(lastMonday.getDate() - 7);
   const lw = lastMonday.toISOString().split('T')[0];
   const lwStats  = members.map(m => ({ ...m, count: workouts.filter(w => w.member_id === m.id && w.week_start === lw).length }));
-  const lwHit    = lwStats.filter(m => m.count >= WEEKLY_GOAL);
+  const lwHit    = lwStats.filter(m => m.count >= goalFor(m, lw));
   const lwMax    = Math.max(...lwStats.map(m => m.count), 0);
   const lwLeads  = lwMax > 0 ? lwStats.filter(m => m.count === lwMax) : [];
   const lwHitIds = new Set(lwHit.map(m => m.id));
@@ -932,17 +952,18 @@ function memberBadgesHTML(memberId) {
 function memberRowHTML(m, cw) {
   const myWorkouts = workouts.filter(w => w.member_id === m.id && w.week_start === cw);
   const count      = myWorkouts.length;
-  const done       = count >= WEEKLY_GOAL;
+  const goal       = goalFor(m, cw);
+  const done       = count >= goal;
   const streak     = calcStreak(m.id, workouts);
   const removing   = confirmingId === m.id;
-  const maxSlot    = Math.max(3, count + 1);
+  const maxSlot    = Math.max(goal, count + 1);
 
   const checksHtml = Array.from({ length: maxSlot }, (_, i) => {
     const slot            = i + 1;
     const existingWorkout = myWorkouts.find(w => w.slot === slot);
     const checked         = !!existingWorkout;
     const workoutType     = existingWorkout?.workout_type || null;
-    const isExtra         = slot > WEEKLY_GOAL;
+    const isExtra         = slot > goal;
     const typeAttr        = workoutType ? ` data-workout-type="${workoutType}"` : '';
     const typeDef = workoutType ? WORKOUT_TYPES.find(t => t.key === workoutType) : null;
     const typeEmoji = typeDef ? workoutEmoji(typeDef) : '';
@@ -951,8 +972,8 @@ function memberRowHTML(m, cw) {
               aria-label="Workout ${slot}"${typeAttr}>${typeEmoji}</button>`;
   }).join('');
 
-  const extraLabel = count > 3 ? ` · +${count - 3} extra` : '';
-  const coolHtml   = count > 3 ? `<span class="cool-badge">&#8599; This guy is cool</span>` : '';
+  const extraLabel = count > goal ? ` · +${count - goal} extra` : '';
+  const coolHtml   = count > goal ? `<span class="cool-badge">&#8599; This guy is cool</span>` : '';
   const streakHtml = streak >= 2 ? `<span class="streak-badge">${streak}w streak</span>` : '';
 
   const removeHtml = doubleConfirmingId === m.id
@@ -986,7 +1007,7 @@ function memberRowHTML(m, cw) {
     <div class="member-row ${done ? 'done' : ''}" data-member-id="${m.id}">
       <div class="member-info">
         <div class="member-name">${done ? '&#10003; ' : ''}${esc(m.name)}${memberBadgesHTML(m.id)}</div>
-        <div class="member-meta"><span class="member-sub">${count}/${WEEKLY_GOAL} this week${done ? ' · goal met' : ''}${extraLabel}</span>${streakHtml}${coolHtml}</div>
+        <div class="member-meta"><span class="member-sub">${count}/${goal} this week${done ? ' · goal met' : ''}${extraLabel}</span>${streakHtml}${coolHtml}</div>
       </div>
       <div class="checks">${checksHtml}</div>
       ${removeHtml}
@@ -3113,7 +3134,7 @@ function buildSaverSlides() {
   const cw = getMonday();
   const slides = [];
   const hit = members.filter(m =>
-    workouts.filter(w => w.member_id === m.id && w.week_start === cw).length >= WEEKLY_GOAL
+    workouts.filter(w => w.member_id === m.id && w.week_start === cw).length >= goalFor(m, cw)
   ).length;
   if (members.length > 0) slides.push(`${hit}/${members.length} hit goal this week`);
 

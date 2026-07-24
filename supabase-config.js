@@ -450,6 +450,57 @@ alter publication supabase_realtime add table challenge_completions;
 -- Clear every test quest at once
 --   delete from challenges;
 
+-- One-off weekly goals. A row here changes a single member's target for
+-- a single week and nothing else, so past weeks and their streaks stay
+-- exactly as they were. week_start must be the Monday of that week.
+--
+-- Targets resolve most specific first:
+--   1. a week_goals row for that member and week
+--   2. that member's standing members.weekly_goal
+--   3. the club default of 3
+create table if not exists week_goals (
+  member_id  text not null references members(id) on delete cascade,
+  week_start text not null,
+  goal       int not null,
+  primary key (member_id, week_start)
+);
+alter table week_goals enable row level security;
+create policy "Allow all" on week_goals for all using (true) with check (true);
+alter publication supabase_realtime add table week_goals;
+
+-- Give one person a goal of 4 for one week only
+--   insert into week_goals (member_id, week_start, goal)
+--   values ((select id from members where name = 'Corey'), '2026-07-20', 4)
+--   on conflict (member_id, week_start) do update set goal = excluded.goal;
+--
+-- Set the whole club to 4 for one week
+--   insert into week_goals (member_id, week_start, goal)
+--   select id, '2026-07-20', 4 from members
+--   on conflict (member_id, week_start) do update set goal = excluded.goal;
+--
+-- Undo a one-off week (they fall back to their normal goal)
+--   delete from week_goals where week_start = '2026-07-20';
+--
+-- See which weeks have overrides
+--   select m.name, g.week_start, g.goal from week_goals g
+--   join members m on m.id = g.member_id
+--   order by g.week_start desc, m.name;
+
+-- Standing per-member weekly goal, applying to every week. Null means
+-- the member uses the club default
+-- of 3 sessions a week; set a number to give one person their own
+-- target. Streaks, the goal-met state, the checkbox count, the extra
+-- credit slots, and the This Week card all follow whatever is set here.
+alter table members add column if not exists weekly_goal int;
+
+-- Give one person a higher goal
+--   update members set weekly_goal = 4 where name = 'Corey';
+-- Put them back on the club default
+--   update members set weekly_goal = null where name = 'Corey';
+-- See who is running a custom goal
+--   select name, coalesce(weekly_goal, 3) as goal from members
+--   order by name;
+
 -- To post news:
 --   insert into news (content, ts)
 --   values ('New: Nutrition tab is live', (extract(epoch from now()) * 1000)::bigint);
