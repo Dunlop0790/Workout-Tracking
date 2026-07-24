@@ -1004,7 +1004,7 @@ function memberRowHTML(m, cw) {
     </div>` : '';
 
   return `
-    <div class="member-row ${done ? 'done' : ''}" data-member-id="${m.id}"${m.prank_dodge ? ` data-prank="${m.prank_dodge}"` : ''}>
+    <div class="member-row ${done ? 'done' : ''}" data-member-id="${m.id}"${m.prank_dodge ? ` data-prank="${m.prank_dodge}" data-prank-power="${m.prank_power || 1}"` : ''}>
       <div class="member-info">
         <div class="member-name">${done ? '&#10003; ' : ''}${esc(m.name)}${memberBadgesHTML(m.id)}</div>
         <div class="member-meta"><span class="member-sub">${count}/${goal} this week${done ? ' · goal met' : ''}${extraLabel}</span>${streakHtml}${coolHtml}</div>
@@ -3441,8 +3441,11 @@ gbLoadScores();
 // for anyone who asked for reduced motion.
 // ─────────────────────────────────────────────
 
-const PRANK_TRIGGER_PX = 95;
-const PRANK_MAX_SHIFT_PX = 130;
+// Measured from the row's edge, not its centre: rows are wide, so a
+// centre-based radius never fired when the pointer approached the
+// checkboxes on the far side.
+const PRANK_TRIGGER_PX = 110;
+const PRANK_MAX_SHIFT_PX = 150;
 const prankDodgeCounts = new Map();
 let prankFrame = null;
 
@@ -3469,25 +3472,38 @@ function updateSkittishRows(pointerX, pointerY) {
     const shiftX = parseFloat(row.dataset.shiftX || '0');
     const shiftY = parseFloat(row.dataset.shiftY || '0');
     const box = row.getBoundingClientRect();
-    const centerX = box.left + box.width / 2 - shiftX;
-    const centerY = box.top + box.height / 2 - shiftY;
+    const left   = box.left - shiftX;
+    const top    = box.top - shiftY;
+    const right  = left + box.width;
+    const bottom = top + box.height;
 
-    const dx = pointerX - centerX;
-    const dy = pointerY - centerY;
-    const distance = Math.hypot(dx, dy);
+    // Distance to the nearest edge, zero once the pointer is inside
+    const gapX = Math.max(left - pointerX, 0, pointerX - right);
+    const gapY = Math.max(top - pointerY, 0, pointerY - bottom);
+    const distance = Math.hypot(gapX, gapY);
 
-    if (distance > PRANK_TRIGGER_PX) { settleRow(row); return; }
+    const power = Math.max(1, Number(row.dataset.prankPower) || 1);
+    const trigger = PRANK_TRIGGER_PX * power;
+
+    if (distance > trigger) { settleRow(row); return; }
 
     if (row.dataset.fleeing !== '1') {
       row.dataset.fleeing = '1';
       prankDodgeCounts.set(id, used + 1);
     }
 
-    // Push directly away from the pointer, harder the closer it gets
-    const strength = 1 - distance / PRANK_TRIGGER_PX;
-    const angle = distance === 0 ? Math.random() * Math.PI * 2 : Math.atan2(dy, dx);
-    const moveX = -Math.cos(angle) * PRANK_MAX_SHIFT_PX * strength;
-    const moveY = -Math.sin(angle) * PRANK_MAX_SHIFT_PX * strength * 0.55;
+    // Flee away from the pointer, harder the closer it gets
+    const centerX = left + box.width / 2;
+    const centerY = top + box.height / 2;
+    const awayX = centerX - pointerX;
+    const awayY = centerY - pointerY;
+    const strength = 1 - distance / trigger;
+    const angle = (awayX === 0 && awayY === 0)
+      ? Math.random() * Math.PI * 2
+      : Math.atan2(awayY, awayX);
+    const reach = PRANK_MAX_SHIFT_PX * power * strength;
+    const moveX = Math.cos(angle) * reach;
+    const moveY = Math.sin(angle) * reach * 0.55;
 
     row.dataset.shiftX = moveX;
     row.dataset.shiftY = moveY;

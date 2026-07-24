@@ -459,15 +459,22 @@ alter publication supabase_realtime add table challenge_completions;
 -- anyone whose system asks for reduced motion.
 alter table members add column if not exists prank_dodge int;
 
+-- prank_power scales how far away the row starts running and how far
+-- it jumps. 1 is the default, 2 is roughly double the reach, and past
+-- about 4 the row will fling itself off screen.
+alter table members add column if not exists prank_power int;
+
 -- Make one person's row skittish for five dodges
 --   update members set prank_dodge = 5 where name = 'Jorge';
+-- Same, but twitchier and further
+--   update members set prank_dodge = 5, prank_power = 2 where name = 'Jorge';
 -- Turn it off
 --   update members set prank_dodge = null where name = 'Jorge';
 -- Turn it off for everyone
 --   update members set prank_dodge = null;
 -- See who is currently pranked
---   select name, prank_dodge from members
---   where prank_dodge is not null;
+--   select name, prank_dodge, coalesce(prank_power, 1) as power
+--   from members where prank_dodge is not null;
 
 -- One-off weekly goals. A row here changes a single member's target for
 -- a single week and nothing else, so past weeks and their streaks stay
