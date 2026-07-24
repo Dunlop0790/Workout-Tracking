@@ -450,6 +450,25 @@ alter publication supabase_realtime add table challenge_completions;
 -- Clear every test quest at once
 --   delete from challenges;
 
+-- Skittish rows, an opt-in prank. A number here makes that member's
+-- tracker row dart away from the pointer, and the row surrenders once
+-- it has dodged that many times, so nobody actually loses a streak over
+-- it. The budget refills on every page load. Null turns it off.
+--
+-- No effect on phones or tablets (there is no hovering pointer) or for
+-- anyone whose system asks for reduced motion.
+alter table members add column if not exists prank_dodge int;
+
+-- Make one person's row skittish for five dodges
+--   update members set prank_dodge = 5 where name = 'Jorge';
+-- Turn it off
+--   update members set prank_dodge = null where name = 'Jorge';
+-- Turn it off for everyone
+--   update members set prank_dodge = null;
+-- See who is currently pranked
+--   select name, prank_dodge from members
+--   where prank_dodge is not null;
+
 -- One-off weekly goals. A row here changes a single member's target for
 -- a single week and nothing else, so past weeks and their streaks stay
 -- exactly as they were. week_start must be the Monday of that week.

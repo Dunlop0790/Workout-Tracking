@@ -1004,7 +1004,7 @@ function memberRowHTML(m, cw) {
     </div>` : '';
 
   return `
-    <div class="member-row ${done ? 'done' : ''}" data-member-id="${m.id}">
+    <div class="member-row ${done ? 'done' : ''}" data-member-id="${m.id}"${m.prank_dodge ? ` data-prank="${m.prank_dodge}"` : ''}>
       <div class="member-info">
         <div class="member-name">${done ? '&#10003; ' : ''}${esc(m.name)}${memberBadgesHTML(m.id)}</div>
         <div class="member-meta"><span class="member-sub">${count}/${goal} this week${done ? ' · goal met' : ''}${extraLabel}</span>${streakHtml}${coolHtml}</div>
@@ -3427,6 +3427,83 @@ document.addEventListener('visibilitychange', () => {
 });
 
 gbLoadScores();
+
+// ─────────────────────────────────────────────
+// Skittish rows
+//
+// A row flagged with data-prank darts away from the pointer instead of
+// sitting still. It surrenders after its dodge budget is spent, so the
+// joke never actually costs anyone their streak. The budget refills on
+// reload, which is exactly what makes it funny twice.
+//
+// The OS cursor cannot be moved by script, so the row moves instead.
+// Skipped entirely without a hovering pointer (phones and tablets) and
+// for anyone who asked for reduced motion.
+// ─────────────────────────────────────────────
+
+const PRANK_TRIGGER_PX = 95;
+const PRANK_MAX_SHIFT_PX = 130;
+const prankDodgeCounts = new Map();
+let prankFrame = null;
+
+function prankEnabled() {
+  return window.matchMedia('(hover: hover)').matches &&
+         !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function settleRow(row) {
+  if (row.dataset.fleeing === '1') {
+    row.dataset.fleeing = '0';
+    row.style.transform = '';
+  }
+}
+
+function updateSkittishRows(pointerX, pointerY) {
+  document.querySelectorAll('.member-row[data-prank]').forEach(row => {
+    const id = row.dataset.memberId;
+    const budget = Number(row.dataset.prank) || 0;
+    const used = prankDodgeCounts.get(id) || 0;
+    if (used >= budget) { settleRow(row); return; }
+
+    // Measure where the row sits at rest, not where it has fled to
+    const shiftX = parseFloat(row.dataset.shiftX || '0');
+    const shiftY = parseFloat(row.dataset.shiftY || '0');
+    const box = row.getBoundingClientRect();
+    const centerX = box.left + box.width / 2 - shiftX;
+    const centerY = box.top + box.height / 2 - shiftY;
+
+    const dx = pointerX - centerX;
+    const dy = pointerY - centerY;
+    const distance = Math.hypot(dx, dy);
+
+    if (distance > PRANK_TRIGGER_PX) { settleRow(row); return; }
+
+    if (row.dataset.fleeing !== '1') {
+      row.dataset.fleeing = '1';
+      prankDodgeCounts.set(id, used + 1);
+    }
+
+    // Push directly away from the pointer, harder the closer it gets
+    const strength = 1 - distance / PRANK_TRIGGER_PX;
+    const angle = distance === 0 ? Math.random() * Math.PI * 2 : Math.atan2(dy, dx);
+    const moveX = -Math.cos(angle) * PRANK_MAX_SHIFT_PX * strength;
+    const moveY = -Math.sin(angle) * PRANK_MAX_SHIFT_PX * strength * 0.55;
+
+    row.dataset.shiftX = moveX;
+    row.dataset.shiftY = moveY;
+    row.style.transform = `translate(${moveX}px, ${moveY}px)`;
+  });
+}
+
+if (prankEnabled()) {
+  document.addEventListener('pointermove', e => {
+    if (prankFrame) return;
+    prankFrame = requestAnimationFrame(() => {
+      prankFrame = null;
+      updateSkittishRows(e.clientX, e.clientY);
+    });
+  }, { passive: true });
+}
 
 // ─────────────────────────────────────────────
 // Init

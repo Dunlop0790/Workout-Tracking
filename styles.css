@@ -2777,6 +2777,15 @@ html.bloom-on[data-theme="sakura"] body {
   color: var(--text-2);
 }
 
+/* A pranked row slides out of the pointer's way, then gives up */
+.member-row[data-prank] {
+  transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .member-row[data-prank] { transition: none; transform: none !important; }
+}
+
 /* Earned quest badges beside a member's name */
 .member-badges {
   display: inline-flex;
