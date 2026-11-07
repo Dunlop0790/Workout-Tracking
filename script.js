@@ -84,6 +84,7 @@ function goalFor(member, weekStart) {
 }
 // The behind-on-goal card stays quiet until midweek; nagging on a
 // Monday helps nobody
+const DAYS_PER_WEEK = 7;
 const NUDGE_START_DAY = 3;
 const MAX_ATTACH_BYTES = 5 * 1024 * 1024;
 
@@ -254,8 +255,8 @@ function prevDateStr(dateStr) {
 
 function foodCalDisplay(f) {
   const sv = primaryServing(f.id);
-  if (sv) return `${Math.round(f.calories * sv.grams / 100)} cal · ${esc(sv.label)}`;
-  return `${Math.round(f.calories)} cal / 100g`;
+  if (sv) return `<span class="stat-list"><span>${Math.round(f.calories * sv.grams / 100)} cal</span><span>${esc(sv.label)}</span></span>`;
+  return `${Math.round(f.calories)} cal per 100 g`;
 }
 
 function best1RM(memberId, liftName) {
@@ -551,18 +552,20 @@ function renderThisWeek(cw) {
 
   const dayOfWeek = new Date().getDay();
   const nudgeOn   = (dayOfWeek === 0 || dayOfWeek >= NUDGE_START_DAY) && behind.length > 0;
-  let nudgeText   = 'Behind on the goal';
-  if (dayOfWeek === 0)     nudgeText = 'Last day to hit goal';
-  else if (dayOfWeek >= 5) nudgeText = 'Running out of week';
+  const daysLeft  = dayOfWeek === 0 ? 0 : DAYS_PER_WEEK - dayOfWeek + 1;
+  const timeChip  = daysLeft === 0 ? 'Last day' : `${daysLeft} days left`;
 
   el.innerHTML = `
     <div class="side-card side-card--flush">
       <button class="recap-toggle" data-action="toggle-recap">
+        <div class="side-card-label">Leading</div>
         ${leaders.length > 0
-          ? `<div class="tw-line">Leading: <strong>${leaders.map(m => esc(m.name)).join(', ')}</strong> · ${max}</div>`
-          : `<div class="tw-line">No sessions logged yet</div>`}
-        ${hasLast ? `<div class="tw-line tw-sub">Last week ${lwHit.length}/${members.length} hit goal</div>` : ''}
-        ${nudgeOn ? `<div class="tw-line tw-warn">${nudgeText}: ${behind.length}</div>` : ''}
+          ? `<div class="tw-lead"><strong>${leaders.map(m => esc(m.name)).join(', ')}</strong><span class="chip">${max}</span></div>`
+          : `<div class="tw-lead">No sessions yet</div>`}
+        <div class="member-meta">
+          ${hasLast ? `<span class="chip">${lwHit.length} of ${members.length} last week</span>` : ''}
+          ${nudgeOn ? `<span class="chip chip--met">${behind.length} behind</span><span class="chip">${timeChip}</span>` : ''}
+        </div>
         <span class="recap-caret">${recapExpanded ? '▴' : '▾'}</span>
       </button>
       ${recapExpanded ? `
@@ -778,13 +781,13 @@ function questCardHTML(ch) {
     return `
       <div class="quest-progress-row">
         <span>${label}</span>
-        <span>${Math.round(p.current)}/${p.target} ${p.unit}</span>
+        <span>${Math.round(p.current)} of ${p.target} ${p.unit}</span>
       </div>
       <span class="vote-bar"><span class="lb-bar-fill vote-fill" style="width:${pct}%"></span></span>`;
   };
   const groupLabel = ch.mode === 'each' ? 'Party progress' : 'Club progress';
   const spots  = ch.max_participants != null
-    ? `${participants.length}/${ch.max_participants} joined`
+    ? `${participants.length} of ${ch.max_participants} joined`
     : `${participants.length} joined`;
 
   const daysLeft = Math.ceil((questWindow(ch).end - Date.now()) / 86400000);
@@ -797,8 +800,9 @@ function questCardHTML(ch) {
         <span class="quest-head-text">
           <span class="quest-title">${esc(ch.title)}</span>
           <span class="quest-meta">
-            <span class="quest-chip">${QUEST_MODE_LABELS[ch.mode] || 'Solo'}</span>
-            ${spots} \u00b7 ${timeText}
+            <span class="chip">${QUEST_MODE_LABELS[ch.mode] || 'Solo'}</span>
+            <span class="chip">${spots}</span>
+            <span class="chip">${timeText}</span>
           </span>
         </span>
         <span class="recap-caret">${expanded ? '\u25b4' : '\u25be'}</span>
@@ -922,7 +926,7 @@ function renderVoteCard() {
           </span>
           <span class="vote-bar"><span class="lb-bar-fill vote-fill" style="width:${(counts[i] / maxCount) * 100}%"></span></span>
         </button>`).join('')}
-      <div class="side-card-sub">${responses.length}/${members.length} voted</div>
+      <div class="side-card-sub">${responses.length} of ${members.length} voted</div>
       <div class="form-error" id="voteError"></div>
     </div>`;
 }
@@ -1078,7 +1082,7 @@ function renderLeaderboard() {
         <span class="lb-name">${esc(m.name)}</span>
         <div class="lb-right">
           <span class="lb-count">${m.count} <span class="lb-count-label">session${m.count !== 1 ? 's' : ''}</span></span>
-          ${m.streak >= 2 ? `<div class="lb-streak">${m.streak}w streak</div>` : ''}
+          ${m.streak >= 2 ? `<span class="chip chip--streak">${m.streak}w streak</span>` : ''}
         </div>
       </div>
       <div class="lb-bar-track"><div class="lb-bar-fill" style="width:${Math.round((m.count / maxCount) * 100)}%"></div></div>
@@ -1431,7 +1435,7 @@ function liftCardHTML(liftName, memberId) {
     ? `<div class="lift-stat">
          <div class="lift-stat-label">Current 1RM</div>
          <div class="lift-stat-val">${Math.round(current1RM)}<span class="lift-unit">lb</span></div>
-         <div class="lift-stat-sub">${latest.weight}×${latest.reps} · ${formatDate(latest.ts)}</div>
+         <div class="lift-stat-sub"><span>${latest.weight}×${latest.reps}</span><span>${formatDate(latest.ts)}</span></div>
        </div>`
     : `<div class="lift-stat lift-stat-empty">No entries yet</div>`;
 
@@ -1439,7 +1443,7 @@ function liftCardHTML(liftName, memberId) {
     ? `<div class="lift-stat">
          <div class="lift-stat-label">All-time PR</div>
          <div class="lift-stat-val pr">${Math.round(pr1RM)}<span class="lift-unit">lb</span></div>
-         <div class="lift-stat-sub">${prEntry.weight}×${prEntry.reps} · ${formatDate(prEntry.ts)}</div>
+         <div class="lift-stat-sub"><span>${prEntry.weight}×${prEntry.reps}</span><span>${formatDate(prEntry.ts)}</span></div>
        </div>`
     : '';
 
@@ -2125,7 +2129,7 @@ function microLineHTML(t) {
   part('Sugar',  t.sug, ' g',  t.sugHas, t.sugMiss);
   part('Sodium', t.sod, ' mg', t.sodHas, t.sodMiss);
   if (parts.length === 0) return '';
-  return `<div class="micro-line">${parts.join(' · ')}</div>`;
+  return `<div class="micro-line stat-list">${parts.map(x => `<span>${x}</span>`).join('')}</div>`;
 }
 
 function totalsCardHTML(totals, goals) {
@@ -2215,7 +2219,7 @@ function logCardHTML(entries, dayStart) {
           ${iconSvg(food.icon)}${esc(food.name)}${food.brand ? ` <span class="food-row-brand">${esc(food.brand)}</span>` : ''}
           <div class="food-row-detail">${Math.round(e.grams)} g</div>
         </div>
-        <span class="food-row-stats">${Math.round(m.cal)} cal · P ${Math.round(m.pro)} · C ${Math.round(m.carb)} · F ${Math.round(m.fat)}</span>
+        <span class="food-row-stats stat-list"><span>${Math.round(m.cal)} cal</span><span>P ${Math.round(m.pro)}</span><span>C ${Math.round(m.carb)}</span><span>F ${Math.round(m.fat)}</span></span>
         <button class="comment-del" data-action="nut-delete-log" data-log-id="${e.id}" aria-label="Delete">&#215;</button>
       </div>`;
   }).join('');
@@ -2292,7 +2296,7 @@ function logFormHTML() {
         <div class="food-row-stats">${(() => {
           const b = primaryServing(food.id);
           const m = macrosFor(food, b ? b.grams : 100);
-          return `Per ${b ? esc(b.label) : '100g'}: ${Math.round(m.cal)} cal · P ${Math.round(m.pro)} · C ${Math.round(m.carb)} · F ${Math.round(m.fat)}`;
+          return `<span class="stat-list"><span>Per ${b ? esc(b.label) : '100 g'}</span><span>${Math.round(m.cal)} cal</span><span>P ${Math.round(m.pro)}</span><span>C ${Math.round(m.carb)}</span><span>F ${Math.round(m.fat)}</span></span>`;
         })()}</div>
       </div>
       <div class="goals-form-row">
@@ -2499,7 +2503,7 @@ function goalCalcPreviewHTML() {
     <div class="goals-form">
       <div class="calc-result">
         <div class="calc-result-cal">${r.cal} <span class="nut-cal-goal">cal/day</span></div>
-        <div class="calc-result-macros">Protein ${r.pro} g · Carbs ${r.carb} g · Fat ${r.fat} g</div>
+        <div class="calc-result-macros stat-list"><span>Protein ${r.pro} g</span><span>Carbs ${r.carb} g</span><span>Fat ${r.fat} g</span></div>
         ${r.warn ? `<div class="calc-warn">${r.warn}</div>` : ''}
       </div>
       <div class="goals-form-row">

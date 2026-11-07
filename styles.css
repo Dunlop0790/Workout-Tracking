@@ -49,11 +49,6 @@
 }
 
 
-[data-theme="dark"] .side-card--warn {
-  background: rgba(234,88,12,0.12);
-  border-color: rgba(234,88,12,0.4);
-}
-[data-theme="dark"] .nudge-label { color: #fdba74; }
 [data-theme="dark"] .add-submit:hover { background: #333330; }
 
 
@@ -438,9 +433,7 @@ h1 {
   color: var(--text-3);
 }
 
-.lb-rank.gold   { color: var(--gold); }
-.lb-rank.silver { color: var(--silver); }
-.lb-rank.bronze { color: var(--bronze); }
+.lb-rank.gold { color: var(--text); font-weight: 700; }
 
 .lb-name {
   flex: 1;
@@ -470,11 +463,6 @@ h1 {
   font-weight: 400;
 }
 
-.lb-streak {
-  font-size: 11px;
-  color: var(--gold);
-  font-weight: 500;
-}
 
 .lb-bar-track {
   margin-left: 38px;
@@ -519,11 +507,6 @@ h1 {
   color: var(--text-3);
   margin-top: 4px;
 }
-.side-card--warn {
-  background: rgba(234,88,12,0.06);
-  border-color: rgba(234,88,12,0.3);
-}
-.side-card--warn .nudge-label { color: #c2570c; }
 .side-card--flush { padding: 0; }
 .side-card--flush .recap-toggle {
   display: block;
@@ -738,7 +721,6 @@ h1 {
   margin-top: 2px;
 }
 
-.lift-stat-val.pr { color: var(--gold); }
 
 .lift-unit {
   font-size: 11px;
@@ -748,6 +730,8 @@ h1 {
 }
 
 .lift-stat-sub {
+  display: flex;
+  gap: 8px;
   font-size: 11px;
   color: var(--text-3);
   margin-top: 3px;
@@ -1179,9 +1163,9 @@ h1 {
    PR flash animation
    ========================= */
 @keyframes pr-flash {
-  0%   { box-shadow: 0 0 0 2px rgba(161,98,7,0.4); border-color: var(--gold); }
-  50%  { box-shadow: 0 0 0 6px rgba(161,98,7,0.1); border-color: var(--gold); }
-  100% { box-shadow: 0 0 0 2px rgba(161,98,7,0.4); border-color: var(--gold); }
+  0%   { box-shadow: 0 0 0 2px var(--border-2); border-color: var(--text); }
+  50%  { box-shadow: 0 0 0 6px var(--border);   border-color: var(--text); }
+  100% { box-shadow: 0 0 0 2px var(--border-2); border-color: var(--text); }
 }
 .lift-card--pr { animation: pr-flash 0.9s ease-in-out 3; }
 .pr-badge {
@@ -1311,7 +1295,7 @@ h1 {
 
 /* =========================
    News ticker
-   Retro LED billboard: pixel font, amber on near-black,
+   Retro LED billboard: pixel font, pale LED on near-black,
    scrolls right to left, pauses on hover.
    ========================= */
 .news-ticker {
@@ -1330,8 +1314,8 @@ h1 {
   font-family: 'Press Start 2P', monospace;
   font-size: 10px;
   line-height: 1;
-  color: #ffb000;
-  text-shadow: 0 0 5px rgba(255, 176, 0, 0.55);
+  color: #e6e6e2;
+  text-shadow: 0 0 5px rgba(230, 230, 226, 0.45);
   animation: ticker-scroll linear infinite;
 }
 .news-ticker:hover .news-ticker-inner { animation-play-state: paused; }
@@ -1355,6 +1339,7 @@ h1 {
 .food-row-brand  { color: var(--text-3); font-size: 11px; }
 .food-row-detail { color: var(--text-3); font-size: 11px; margin-top: 1px; }
 .food-row-stats  { color: var(--text-2); font-size: 11px; white-space: nowrap; }
+.stat-list { display: inline-flex; flex-wrap: wrap; gap: 0 10px; }
 
 .log-actions { display: flex; }
 .log-actions .log-add { flex: 1; }
@@ -1475,7 +1460,7 @@ h1 {
 .trend-bar { fill: var(--text-3); opacity: 0.75; }
 .trend-bar-today { fill: var(--text); opacity: 1; }
 .trend-goal {
-  stroke: var(--gold);
+  stroke: var(--text-2);
   stroke-width: 1;
   stroke-dasharray: 3 2;
   vector-effect: non-scaling-stroke;
@@ -1926,11 +1911,6 @@ h1 {
 [data-theme="dmg"] .stat-num { font-size: 19px; }
 [data-theme="dmg"] .news-ticker { background: #2b3022; border-color: #2b3022; border-radius: 3px; }
 [data-theme="dmg"] .news-ticker-inner { color: #c2c8a5; text-shadow: none; }
-[data-theme="dmg"] .side-card--warn {
-  background: rgba(43,48,34,0.10);
-  border-color: rgba(43,48,34,0.45);
-}
-[data-theme="dmg"] .nudge-label { color: #2b3022; }
 [data-theme="dmg"] .add-submit:hover { background: #a2a980; }
 
 /* =========================
@@ -1982,11 +1962,6 @@ h1 {
   color: #33ff66;
   text-shadow: 0 0 6px rgba(51,255,102,0.6);
 }
-[data-theme="terminal"] .side-card--warn {
-  background: rgba(51,255,102,0.08);
-  border-color: rgba(51,255,102,0.4);
-}
-[data-theme="terminal"] .nudge-label { color: #33ff66; }
 [data-theme="terminal"] .add-submit:hover { background: #101c10; }
 
 /* Unlock flicker */
@@ -2355,11 +2330,6 @@ html.neon-on[data-theme="dark"] body {
   border-bottom-color: var(--accent);
   color: #d4568c;
 }
-[data-theme="sakura"] .side-card--warn {
-  background: rgba(240,120,170,0.10);
-  border-color: rgba(240,120,170,0.4);
-}
-[data-theme="sakura"] .nudge-label { color: #d4568c; }
 [data-theme="sakura"] .lift-spark { color: #f06aa4; }
 [data-theme="sakura"] :focus-visible {
   outline: 2px solid var(--accent);
@@ -2540,9 +2510,14 @@ html.bloom-on[data-theme="sakura"] body {
 /* =========================
    Quest board
    ========================= */
-.tw-line { font-size: 13px; line-height: 1.6; }
-.tw-sub  { color: var(--text-2); font-size: 12px; }
-.tw-warn { color: #c2570c; font-size: 12px; }
+.tw-lead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  margin-bottom: 7px;
+}
+.recap-toggle .member-meta:empty { display: none; }
 .side-card--flush .recap-toggle { position: relative; }
 .side-card--flush .recap-caret { position: absolute; top: 12px; right: 14px; }
 
@@ -2581,20 +2556,10 @@ html.bloom-on[data-theme="sakura"] body {
   line-height: 1.4;
 }
 .quest-meta {
-  display: block;
-  font-size: 11px;
-  color: var(--text-3);
-  margin-top: 3px;
-}
-.quest-chip {
-  display: inline-block;
-  padding: 1px 7px;
-  margin-right: 5px;
-  border: 1px solid var(--border-2);
-  border-radius: 10px;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 5px;
 }
 
 .quest-badge {
