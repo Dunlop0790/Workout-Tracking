@@ -20,13 +20,17 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const DEFAULT_LIFTS = ['Squat', 'Bench Press', 'Deadlift', 'Overhead Press'];
 
+// Workout types. The four real workouts take the Super Famicom pad
+// colours; the two catch-alls stay neutral so the colour means
+// something. Each is a disc with a letter in the standard themes, a
+// pixel icon on Game Boy, and a cat on Sakura.
 const WORKOUT_TYPES = [
-  { key: 'lift',  label: '💪 Lift',          color: '#7c3aed', emoji: '💪' },
-  { key: 'run',   label: '🏃 Run',           color: '#2563eb', emoji: '🏃' },
-  { key: 'cardio',label: '🚴 Cardio',        color: '#e11d48', emoji: '🚴' },
-  { key: 'sport', label: '⚽ Sport',         color: '#16a34a', emoji: '⚽' },
-  { key: 'cross', label: '🤸 Crosstraining', color: '#ea580c', emoji: '🤸' },
-  { key: 'other', label: '✨ Other',         color: '#64748b', emoji: '✨' },
+  { key: 'lift',   label: 'Lift',          letter: 'L', color: '#cf4a47' },
+  { key: 'run',    label: 'Run',           letter: 'R', color: '#e0b43a' },
+  { key: 'cardio', label: 'Cardio',        letter: 'C', color: '#4c78c8' },
+  { key: 'sport',  label: 'Sport',         letter: 'S', color: '#56a564' },
+  { key: 'cross',  label: 'Crosstraining', letter: 'X', color: '#4b4b4b' },
+  { key: 'other',  label: 'Other',         letter: 'O', color: '#9c9c9c' },
 ];
 
 // Sakura swaps every workout emoji for a cat
@@ -40,19 +44,24 @@ function emojiMode() {
   const th = document.documentElement.dataset.theme;
   if (th === 'sakura') return 'cat';
   if (th === 'dmg') return 'px';
-  return 'emoji';
+  return 'disc';
 }
 
+// The indicator that goes inside a checked slot or in front of a type
+// name. In disc mode the slot itself is the disc, so only the letter
+// is returned and CSS paints the colour from --type-color.
 function workoutEmoji(t) {
   const mode = emojiMode();
   if (mode === 'cat') return SAKURA_EMOJI[t.key];
   if (mode === 'px') return `<span class="px-icon" style="--px:url('icons/${t.key}.png')"></span>`;
-  return t.emoji;
+  return `<span class="type-letter">${t.letter}</span>`;
 }
 
 function workoutLabel(t) {
-  const name = t.label.replace(t.emoji, '').trim();
-  return `${workoutEmoji(t)} ${name}`;
+  if (emojiMode() === 'disc') {
+    return `<span class="type-disc" style="--type-color:${t.color}">${t.letter}</span>${t.label}`;
+  }
+  return `${workoutEmoji(t)} ${t.label}`;
 }
 
 // Club rules and limits
@@ -480,7 +489,7 @@ function renderHeader() {
   ).length;
   const stat = document.getElementById('teamStat');
   if (total === 0) { stat.innerHTML = ''; return; }
-  stat.className = 'team-stat' + (hitGoal === total ? ' all-done' : '');
+  stat.className = 'team-stat';
   stat.innerHTML = `<div class="stat-num">${hitGoal}/${total}</div><div class="stat-label">hit goal this week</div>`;
 }
 
@@ -956,6 +965,7 @@ function memberRowHTML(m, cw) {
   const done       = count >= goal;
   const streak     = calcStreak(m.id, workouts);
   const removing   = confirmingId === m.id;
+  const locked     = !!m.logs_locked;
   const maxSlot    = Math.max(goal, count + 1);
 
   const checksHtml = Array.from({ length: maxSlot }, (_, i) => {
@@ -967,14 +977,23 @@ function memberRowHTML(m, cw) {
     const typeAttr        = workoutType ? ` data-workout-type="${workoutType}"` : '';
     const typeDef = workoutType ? WORKOUT_TYPES.find(t => t.key === workoutType) : null;
     const typeEmoji = typeDef ? workoutEmoji(typeDef) : '';
-    return `<button class="check-btn ${checked ? 'checked' : ''} ${isExtra ? 'extra' : ''}"
+    const frozen = locked && checked;
+    const colorAttr = typeDef && emojiMode() === 'disc' ? ` style="--type-color:${typeDef.color}"` : '';
+    return `<button class="check-btn ${checked ? 'checked' : ''} ${isExtra ? 'extra' : ''} ${frozen ? 'locked' : ''}"
               data-action="toggle" data-id="${m.id}" data-slot="${slot}"
-              aria-label="Workout ${slot}"${typeAttr}>${typeEmoji}</button>`;
+              aria-label="Workout ${slot}${typeDef ? ', ' + typeDef.label : ''}${frozen ? ', locked' : ''}"
+              title="${frozen ? 'This log is locked' : (typeDef ? typeDef.label : '')}"${typeAttr}${colorAttr}>${typeEmoji}</button>`;
   }).join('');
 
-  const extraLabel = count > goal ? ` · +${count - goal} extra` : '';
-  const coolHtml   = count > goal ? `<span class="cool-badge">&#8599; This guy is cool</span>` : '';
-  const streakHtml = streak >= 2 ? `<span class="streak-badge">${streak}w streak</span>` : '';
+  // Status lives in the chip row, not in the card's colour: the count
+  // chip inverts once the goal is met and everything else stays
+  // outlined and neutral
+  const chips = [
+    `<span class="chip chip--count${done ? ' chip--met' : ''}">${count} of ${goal}</span>`,
+    streak >= 2  ? `<span class="chip chip--streak">${streak}w streak</span>` : '',
+    count > goal ? `<span class="chip">+${count - goal}</span>` : '',
+    count > goal ? `<span class="chip">This guy is cool</span>` : '',
+  ].join('');
 
   const removeHtml = doubleConfirmingId === m.id
     ? `<div class="confirm-wrap">
@@ -987,6 +1006,8 @@ function memberRowHTML(m, cw) {
          <button class="confirm-yes" data-action="double-confirm-remove" data-id="${m.id}">Yes</button>
          <button class="confirm-no" data-action="cancel-remove">No</button>
        </div>`
+    : locked
+    ? `<span class="lock-mark" title="Logs locked">&#128274;</span>`
     : `<button class="remove-btn" data-action="start-remove" data-id="${m.id}">&#215;</button>`;
 
   const showTypePicker = pendingTypeInfo && pendingTypeInfo.memberId === m.id;
@@ -1004,10 +1025,10 @@ function memberRowHTML(m, cw) {
     </div>` : '';
 
   return `
-    <div class="member-row ${done ? 'done' : ''}" data-member-id="${m.id}"${m.prank_dodge ? ` data-prank="${m.prank_dodge}" data-prank-power="${m.prank_power || 1}"` : ''}>
+    <div class="member-row" data-member-id="${m.id}"${m.prank_dodge ? ` data-prank="${m.prank_dodge}" data-prank-power="${m.prank_power || 1}"` : ''}>
       <div class="member-info">
-        <div class="member-name">${done ? '&#10003; ' : ''}${esc(m.name)}${memberBadgesHTML(m.id)}</div>
-        <div class="member-meta"><span class="member-sub">${count}/${goal} this week${done ? ' · goal met' : ''}${extraLabel}</span>${streakHtml}${coolHtml}</div>
+        <div class="member-name">${esc(m.name)}${memberBadgesHTML(m.id)}</div>
+        <div class="member-meta">${chips}</div>
       </div>
       <div class="checks">${checksHtml}</div>
       ${removeHtml}
@@ -1506,7 +1527,17 @@ async function toggleSlot(memberId, slot) {
   const existing = workouts.find(w => w.member_id === memberId && w.week_start === cw && w.slot === slot);
   if (existing) {
     if (pendingTypeInfo?.memberId === memberId && pendingTypeInfo?.slot === slot) pendingTypeInfo = null;
-    await db.from('workouts').delete().eq('id', existing.id);
+    const owner = members.find(x => x.id === memberId);
+    if (owner?.logs_locked) {
+      alert(`${owner.name}'s logs are locked and cannot be removed.`);
+      renderTracker();
+      return;
+    }
+    const { error } = await db.from('workouts').delete().eq('id', existing.id);
+    if (error) {
+      alert('That log is locked and cannot be removed.');
+      loadData();
+    }
   } else {
     pendingTypeInfo = { memberId, slot };
     await db.from('workouts').insert({ member_id: memberId, week_start: cw, slot, ts: Date.now() });
@@ -1536,7 +1567,11 @@ async function doAddMember() {
 async function removeMember(id) {
   confirmingId = null;
   doubleConfirmingId = null;
-  await db.from('members').delete().eq('id', id);
+  const { error } = await db.from('members').delete().eq('id', id);
+  if (error) {
+    alert('That member is locked and cannot be removed.');
+    loadData();
+  }
 }
 
 // ─────────────────────────────────────────────

@@ -450,6 +450,41 @@ alter publication supabase_realtime add table challenge_completions;
 -- Clear every test quest at once
 --   delete from challenges;
 
+-- Locked logs. A locked member's workouts cannot be deleted and the
+-- member cannot be removed. The site hides the controls, and the two
+-- policies further down enforce it in the database, so the lock holds
+-- even against someone poking at the browser console.
+alter table members add column if not exists logs_locked boolean not null default false;
+
+-- Lock your own logs
+--   update members set logs_locked = true where name = 'Corey';
+-- Unlock
+--   update members set logs_locked = false where name = 'Corey';
+-- See who is locked
+--   select name, logs_locked from members where logs_locked;
+
+-- Enforcement. Check what already exists first, because a permissive
+-- policy covering ALL commands would keep granting deletes:
+--   select policyname, cmd from pg_policies
+--   where tablename in ('workouts', 'members');
+--
+-- Then replace the catch-all policies with per-command ones. Swap
+-- 'Allow all' for whatever the query above reported.
+--   drop policy if exists "Allow all" on workouts;
+--   create policy "read workouts"   on workouts for select using (true);
+--   create policy "insert workouts" on workouts for insert with check (true);
+--   create policy "update workouts" on workouts for update using (true) with check (true);
+--   create policy "delete workouts" on workouts for delete using (
+--     not exists (select 1 from members m
+--                 where m.id = workouts.member_id and m.logs_locked)
+--   );
+--
+--   drop policy if exists "Allow all" on members;
+--   create policy "read members"   on members for select using (true);
+--   create policy "insert members" on members for insert with check (true);
+--   create policy "update members" on members for update using (true) with check (true);
+--   create policy "delete members" on members for delete using (not logs_locked);
+
 -- Skittish rows, an opt-in prank. A number here makes that member's
 -- tracker row dart away from the pointer, and the row surrenders once
 -- it has dodged that many times, so nobody actually loses a streak over
